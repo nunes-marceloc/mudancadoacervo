@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mapeador de Mudança de Acervo - Biblioteca</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- SheetJS for authentic Excel (.xlsx) export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- jsPDF & AutoTable for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Smooth mobile tap and transition states */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    .touch-manipulation {
+      touch-action: manipulation;
+    }
+    /* Hide number spinner controls for cleaner mobile inputs */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; font-size: 12pt; }
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="h-full font-sans antialiased text-slate-800 selection:bg-brand-500 selection:text-white flex flex-col">
+
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm no-print">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-brand-500 text-white flex items-center justify-center shadow-md shadow-brand-500/20">
+          <i data-lucide="library" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-base sm:text-lg leading-tight text-slate-900 flex items-center gap-1.5">
+            Mapeador de Acervo
+            <span class="text-[10px] uppercase font-extrabold tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200/60">A01-A54</span>
+          </h1>
+          <p class="text-xs text-slate-500">Gestão de Mudança & Realocação</p>
+        </div>
+      </div>
+
+      <!-- Quick status counter -->
+      <div class="flex items-center space-x-2">
+        <button id="btnQuickSummary" onclick="toggleProgressOverview()" class="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 transition text-xs font-semibold px-2.5 py-1.5 rounded-lg text-slate-700 border border-slate-200">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+          <span id="headerCounter">0/54</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Visual mini progress bar -->
+    <div class="w-full bg-slate-100 h-1">
+      <div id="headerProgressBar" class="bg-gradient-to-r from-brand-600 to-emerald-500 h-1 transition-all duration-300 w-0"></div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 pb-24">
+
+    <!-- ==================== TELA 1: CADASTRO / ENTRADA DE DADOS ==================== -->
+    <section id="screenEntry" class="space-y-5">
+      <!-- Info banner -->
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50/70 border border-blue-200/80 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="p-2 bg-blue-500/10 text-blue-700 rounded-xl mt-0.5 shrink-0">
+            <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
+          </div>
+          <div class="text-sm">
+            <h2 class="font-semibold text-slate-900 text-base">Identificação das Estantes</h2>
+            <p class="text-slate-600 mt-1 leading-relaxed">
+              Digite apenas o número de cada lado. Exemplo: se o lado da estante antigo <span class="font-bold text-indigo-700">A01</span> agora está no espaço novo <span class="font-bold text-emerald-700">B24</span>, informe <strong>1</strong> e <strong>24</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Card Form -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h3 id="formTitle" class="font-semibold text-slate-900 flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
+            Adicionar Mapeamento
+          </h3>
+          <span id="editModeBadge" class="hidden text-xs bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full border border-amber-300">
+            Modo de Edição
+          </span>
+        </div>
+
+        <form id="mappingForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            <!-- Posicao Antiga (A) -->
+            <div class="space-y-1.5">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Posição Antiga (Acervo)
+              </label>
+              <div class="relative flex items-stretch rounded-xl border-2 border-slate-200 focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-500/20 bg-slate-50 transition">
+                <span class="inline-flex items-center px-4 rounded-l-lg bg-indigo-100/70 text-indigo-900 font-black text-xl select-none border-r border-slate-200">
+                  A
+                </span>
+                <input 
+                  type="number" 
+                  id="inputOldNum" 
+                  min="1" 
+                  max="54" 
+                  placeholder="01 - 54" 
+                  inputmode="numeric" 
+                  required
+                  class="block w-full px-3 py-3 text-lg font-bold text-slate-900 bg-transparent placeholder:text-slate-400 focus:outline-none touch-manipulation"
+                  autocomplete="off"
+                >
+              </div>
+              <p class="text-[11px] text-slate-500 flex items-center gap-1">
+                <i data-lucide="info" class="w-3 h-3 text-slate-400"></i> Onde os livros ficavam originalmente
+              </p>
+            </div>
+
+            <!-- Posicao Nova (B) -->
+            <div class="space-y-1.5">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Posição Nova (Física)
+              </label>
+              <div class="relative flex items-stretch rounded-xl border-2 border-slate-200 focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20 bg-slate-50 transition">
+                <span class="inline-flex items-center px-4 rounded-l-lg bg-emerald-100/80 text-emerald-900 font-black text-xl select-none border-r border-slate-200">
+                  B
+                </span>
+                <input 
+                  type="number" 
+                  id="inputNewNum" 
+                  min="1" 
+                  max="54" 
+                  placeholder="01 - 54" 
+                  inputmode="numeric" 
+                  required
+                  class="block w-full px-3 py-3 text-lg font-bold text-slate-900 bg-transparent placeholder:text-slate-400 focus:outline-none touch-manipulation"
+                  autocomplete="off"
+                >
+              </div>
+              <p class="text-[11px] text-slate-500 flex items-center gap-1">
+                <i data-lucide="info" class="w-3 h-3 text-slate-400"></i> Onde a estante física foi colocada
+              </p>
+            </div>
+          </div>
+
+          <!-- Buttons Row -->
+          <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+            <button 
+              type="submit" 
+              id="btnSubmitForm"
+              class="w-full flex-1 bg-brand-600 hover:bg-brand-700 active:scale-[0.98] text-white font-bold py-3.5 px-5 rounded-xl shadow-md shadow-brand-600/25 flex items-center justify-center gap-2 transition touch-manipulation"
+            >
+              <i data-lucide="plus-circle" class="w-5 h-5"></i>
+              <span id="btnSubmitText">Registrar Posição</span>
+            </button>
+
+            <button 
+              type="button" 
+              id="btnCancelEdit"
+              onclick="cancelEditing()" 
+              class="hidden px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition"
+            >
+              Cancelar Edição
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Visual Map Grid of 54 slots (Mini visualizer) -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="layout-grid" class="w-4 h-4 text-slate-600"></i>
+            <h3 class="font-semibold text-sm text-slate-800">Mapa Visual do Acervo (A01 a A54)</h3>
+          </div>
+          <span class="text-xs font-medium text-slate-500" id="gridProgressLegend">
+            Toque em um número para editar
+          </span>
+        </div>
+
+        <div class="grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-1.5 max-h-56 overflow-y-auto p-1 bg-slate-50/70 rounded-xl border border-slate-200 custom-scrollbar" id="shelfSlotGrid">
+          <!-- Filled dynamically via renderSlotGrid() -->
+        </div>
+
+        <div class="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded bg-emerald-500"></span>
+            <span>Mapeada</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded bg-slate-200 border border-slate-300"></span>
+            <span>Pendente</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ultimos Registros -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-sm text-slate-800 flex items-center gap-2">
+            <i data-lucide="clock" class="w-4 h-4 text-slate-500"></i>
+            Últimos Registros
+          </h3>
+          <span class="text-xs text-slate-500 font-medium" id="recentEntriesCount">0 itens</span>
+        </div>
+
+        <div id="recentEntriesList" class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+          <!-- Entries rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Botão Finalizar -->
+      <div class="pt-2">
+        <button 
+          type="button" 
+          onclick="goToReportScreen()"
+          class="w-full bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-slate-900/20 flex items-center justify-between transition touch-manipulation group"
+        >
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center group-hover:bg-brand-500 transition">
+              <i data-lucide="clipboard-check" class="w-5 h-5 text-white"></i>
+            </div>
+            <div class="text-left">
+              <div class="text-base font-bold">Finalizar e Ver Relações</div>
+              <div class="text-xs text-slate-300 font-normal">Visualizar matriz, roteiro de livros e exportar</div>
+            </div>
+          </div>
+          <i data-lucide="arrow-right" class="w-6 h-6 text-slate-300 group-hover:translate-x-1 transition-transform"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== TELA 2: RELATÓRIO E RELAÇÃO ==================== -->
+    <section id="screenReport" class="hidden space-y-5">
+      
+      <!-- Barra Superior de Ações -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <button 
+          type="button" 
+          onclick="goToEntryScreen()"
+          class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-sm transition touch-manipulation"
+        >
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Inserir novos dados</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <!-- Excel Export Button -->
+          <button 
+            type="button" 
+            onclick="exportToExcel()" 
+            title="Exportar para Planilha Excel"
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
+          >
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Exportar Excel</span>
+            <span class="sm:hidden">Excel</span>
+          </button>
+
+          <!-- PDF Export Button -->
+          <button 
+            type="button" 
+            onclick="exportToPdf()" 
+            title="Exportar Documento em PDF"
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
+          >
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Exportar PDF</span>
+            <span class="sm:hidden">PDF</span>
+          </button>
+
+          <!-- Print button -->
+          <button 
+            type="button" 
+            onclick="window.print()" 
+            title="Imprimir"
+            class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+          >
+            <i data-lucide="printer" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metricas do Remanejamento -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          <span class="text-[11px] font-medium text-slate-500 block">Mapeadas</span>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="statMapped" class="text-2xl font-black text-slate-900">0</span>
+            <span class="text-xs text-slate-400">/ 54</span>
+          </div>
+          <div class="text-[10px] text-emerald-600 font-semibold mt-0.5" id="statMappedPercent">0%</div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          <span class="text-[11px] font-medium text-slate-500 block">Pendentes</span>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="statPending" class="text-2xl font-black text-amber-600">54</span>
+            <span class="text-xs text-slate-400">faltam</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium mt-0.5">a registrar</div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          <span class="text-[11px] font-medium text-slate-500 block">Sem Mudança</span>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="statUnchanged" class="text-2xl font-black text-indigo-600">0</span>
+            <span class="text-xs text-slate-400">(A=B)</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium mt-0.5">mesma posição</div>
+        </div>
+
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          <span class="text-[11px] font-medium text-slate-500 block">Livros a Mover</span>
+          <div class="flex items-baseline gap-1 mt-1">
+            <span id="statNeedMove" class="text-2xl font-black text-rose-600">0</span>
+            <span class="text-xs text-slate-400">lados</span>
+          </div>
+          <div class="text-[10px] text-slate-500 font-medium mt-0.5">exigem traslado</div>
+        </div>
+      </div>
+
+      <!-- Abas de Navegação do Relatório -->
+      <div class="bg-slate-200/80 p-1 rounded-xl flex text-xs sm:text-sm font-semibold">
+        <button 
+          id="tabBtnDirect"
+          onclick="switchReportTab('direct')"
+          class="flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition"
+        >
+          <i data-lucide="arrow-right-left" class="w-4 h-4 text-brand-600"></i>
+          <span>Relação de Posições (A ➔ B)</span>
+        </button>
+        <button 
+          id="tabBtnGuide"
+          onclick="switchReportTab('guide')"
+          class="flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition"
+        >
+          <i data-lucide="book-open-check" class="w-4 h-4 text-indigo-600"></i>
+          <span>Roteiro de Mudança dos Livros</span>
+        </button>
+      </div>
+
+      <!-- Filtro e Busca -->
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input 
+            type="text" 
+            id="reportSearchInput" 
+            placeholder="Buscar por estante (ex: 01, A12, B24)..." 
+            oninput="handleReportSearch(this.value)"
+            class="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20"
+          >
+        </div>
+        
+        <select 
+          id="reportFilterSelect" 
+          onchange="handleFilterChange(this.value)"
+          class="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-600"
+        >
+          <option value="all">Todas as Estantes (1 a 54)</option>
+          <option value="mapped">Apenas Mapeadas</option>
+          <option value="pending">Apenas Pendentes</option>
+          <option value="needs_relocation">Apenas com Deslocamento de Livros</option>
+        </select>
+      </div>
+
+      <!-- TAB 1: VISÃO DE RELAÇÃO DIRETA (A -> B) -->
+      <div id="reportTabDirect" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div>
+            <h3 class="font-bold text-slate-900 text-sm sm:text-base">Mapeamento Físico de Estantes</h3>
+            <p class="text-xs text-slate-500">Onde cada lado original (A) está localizado fisicamente hoje (B)</p>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 rounded-lg text-slate-600" id="tableFilterCount">54 estantes</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
+                <th class="py-3 px-4">Posição Antiga</th>
+                <th class="py-3 px-4 text-center">Destino</th>
+                <th class="py-3 px-4">Posição Nova</th>
+                <th class="py-3 px-4 hidden md:table-cell">Ação Necessária</th>
+                <th class="py-3 px-4 text-right no-print">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="reportTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered via renderReportTable() -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 2: ROTEIRO PRÁTICO DE TRANSPORTE DOS LIVROS -->
+      <div id="reportTabGuide" class="hidden space-y-4">
+        <div class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-md">
+          <div class="flex items-start gap-3">
+            <div class="p-2.5 bg-white/10 rounded-xl">
+              <i data-lucide="compass" class="w-6 h-6 text-brand-300"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-base sm:text-lg">Guia de Realocação dos Livros</h3>
+              <p class="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
+                Este roteiro indica exatamente de onde retirar os livros e para onde levá-los para restabelecer a ordem correta do acervo na biblioteca.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div id="relocationCardsContainer" class="space-y-3">
+          <!-- Filled dynamically via renderRelocationGuide() -->
+        </div>
+      </div>
+
+      <!-- Floating button on report screen to add more items -->
+      <div class="pt-4 text-center">
+        <button 
+          type="button" 
+          onclick="goToEntryScreen()"
+          class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition touch-manipulation"
+        >
+          <i data-lucide="plus-circle" class="w-5 h-5"></i>
+          <span>Inserir Novos Dados</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL DE CONFIRMAÇÃO GENÉRICA (Substitui confirm() do navegador) -->
+  <div id="customConfirmModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-100 transform transition-all">
+      <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <h3 id="modalConfirmTitle" class="font-bold text-slate-900 text-base">Confirmação</h3>
+      <p id="modalConfirmMessage" class="text-sm text-slate-600 mt-1.5 leading-relaxed">Tem certeza de que deseja realizar esta ação?</p>
+      
+      <div class="flex items-center justify-end gap-2 mt-5">
+        <button 
+          type="button" 
+          id="btnModalCancel" 
+          class="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition"
+        >
+          Cancelar
+        </button>
+        <button 
+          type="button" 
+          id="btnModalConfirm" 
+          class="px-4 py-2 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition"
+        >
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 left-5 sm:left-auto sm:w-96 z-50 pointer-events-none flex flex-col gap-2"></div>
+
+  <script>
+    /* Total default library side slots */
+    const TOTAL_SLOTS = 54;
+    const STORAGE_KEY = 'biblio_shelf_mapping_v2';
+
+    /* App State */
+    let shelvesState = {}; // Key: number 1..54, Value: number 1..54 (e.g. 1: 24 means A01 is at B24)
+    let editingOldNumber = null;
+    let currentReportFilter = 'all';
+    let currentSearchTerm = '';
+    let currentReportTab = 'direct';
+
+    // Initialize application when DOM is ready
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      setupEventListeners();
+      renderAll();
+      lucide.createIcons();
+    });
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          shelvesState = JSON.parse(saved);
+        } else {
+          // Pre-populate with empty state
+          shelvesState = {};
+        }
+      } catch (e) {
+        console.error('Error loading saved mapping state:', e);
+        shelvesState = {};
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(shelvesState));
+      } catch (e) {
+        console.error('Error saving state:', e);
+      }
+    }
+
+    function setupEventListeners() {
+      const inputOld = document.getElementById('inputOldNum');
+      const inputNew = document.getElementById('inputNewNum');
+
+      // Auto jump to next input on mobile when 2 digits are entered
+      inputOld.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if (val && parseInt(val, 10) > 5) {
+          // If typed single digit 6-9, or 2 digits, move focus to B
+          if (val.length >= 2 || parseInt(val, 10) > 9) {
+            inputNew.focus();
+          }
+        }
+      });
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const inputOld = document.getElementById('inputOldNum');
+      const inputNew = document.getElementById('inputNewNum');
+
+      const oldVal = parseInt(inputOld.value, 10);
+      const newVal = parseInt(inputNew.value, 10);
+
+      // Range check
+      if (isNaN(oldVal) || oldVal < 1 || oldVal > TOTAL_SLOTS) {
+        showToast(`A posição antiga deve ser um número entre 1 e ${TOTAL_SLOTS}.`, 'warning');
+        inputOld.focus();
+        return;
+      }
+      if (isNaN(newVal) || newVal < 1 || newVal > TOTAL_SLOTS) {
+        showToast(`A posição nova deve ser um número entre 1 e ${TOTAL_SLOTS}.`, 'warning');
+        inputNew.focus();
+        return;
+      }
+
+      // Check for duplicate assignments in B (Position B can only house one physical bookcase)
+      for (const [existingA, assignedB] of Object.entries(shelvesState)) {
+        const existingANum = parseInt(existingA, 10);
+        if (assignedB === newVal && existingANum !== oldVal) {
+          showToast(`A posição física B${padZero(newVal)} já está ocupada pela estante A${padZero(existingANum)}!`, 'error');
+          inputNew.focus();
+          return;
+        }
+      }
+
+      // If overwriting an existing mapping for A, notify gently
+      const isUpdate = shelvesState[oldVal] !== undefined;
+
+      shelvesState[oldVal] = newVal;
+      saveState();
+
+      showToast(
+        isUpdate 
+          ? `Mapeamento atualizado: A${padZero(oldVal)} ➔ B${padZero(newVal)}` 
+          : `Gravado com sucesso: A${padZero(oldVal)} ➔ B${padZero(newVal)}`,
+        'success'
+      );
+
+      // Reset form and prepare for next logical entry
+      resetForm();
+      
+      // Auto-suggest next unmapped 'A' slot
+      suggestNextAvailableSlot();
+
+      renderAll();
+    }
+
+    function suggestNextAvailableSlot() {
+      for (let i = 1; i <= TOTAL_SLOTS; i++) {
+        if (shelvesState[i] === undefined) {
+          const inputOld = document.getElementById('inputOldNum');
+          inputOld.value = i;
+          document.getElementById('inputNewNum').focus();
+          return;
+        }
+      }
+      // If all are mapped, just focus on old
+      document.getElementById('inputOldNum').focus();
+    }
+
+    function startEditing(oldNum) {
+      editingOldNumber = oldNum;
+      const currentB = shelvesState[oldNum];
+
+      goToEntryScreen();
+
+      document.getElementById('inputOldNum').value = oldNum;
+      document.getElementById('inputNewNum').value = currentB !== undefined ? currentB : '';
+
+      document.getElementById('formTitle').innerHTML = `
+        <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
+        <span>Editar Mapeamento da Estante A${padZero(oldNum)}</span>
+      `;
+      document.getElementById('editModeBadge').classList.remove('hidden');
+      document.getElementById('btnSubmitText').textContent = 'Atualizar Posição';
+      document.getElementById('btnCancelEdit').classList.remove('hidden');
+
+      document.getElementById('inputNewNum').focus();
+      lucide.createIcons();
+    }
+
+    function cancelEditing() {
+      editingOldNumber = null;
+      resetForm();
+      document.getElementById('formTitle').innerHTML = `
+        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
+        <span>Adicionar Mapeamento</span>
+      `;
+      document.getElementById('editModeBadge').classList.add('hidden');
+      document.getElementById('btnSubmitText').textContent = 'Registrar Posição';
+      document.getElementById('btnCancelEdit').classList.add('hidden');
+      lucide.createIcons();
+    }
+
+    function resetForm() {
+      document.getElementById('inputOldNum').value = '';
+      document.getElementById('inputNewNum').value = '';
+      document.getElementById('editModeBadge').classList.add('hidden');
+      document.getElementById('btnSubmitText').textContent = 'Registrar Posição';
+      document.getElementById('btnCancelEdit').classList.add('hidden');
+      document.getElementById('formTitle').innerHTML = `
+        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
+        <span>Adicionar Mapeamento</span>
+      `;
+      lucide.createIcons();
+    }
+
+    function deleteEntry(oldNum) {
+      showCustomConfirm(
+        `Excluir Mapeamento A${padZero(oldNum)}`,
+        `Deseja realmente remover a relação da estante A${padZero(oldNum)}? Os dados deverão ser reinseridos se necessário.`,
+        () => {
+          delete shelvesState[oldNum];
+          saveState();
+          showToast(`Mapeamento A${padZero(oldNum)} excluído.`, 'info');
+          if (editingOldNumber === oldNum) {
+            cancelEditing();
+          }
+          renderAll();
+        }
+      );
+    }
+
+    function renderAll() {
+      renderHeaderProgress();
+      renderSlotGrid();
+      renderRecentEntries();
+      renderReportTable();
+      renderRelocationGuide();
+      renderMetrics();
+      lucide.createIcons();
+    }
+
+    function renderHeaderProgress() {
+      const mappedCount = Object.keys(shelvesState).length;
+      const pct = Math.round((mappedCount / TOTAL_SLOTS) * 100);
+      
+      document.getElementById('headerCounter').textContent = `${mappedCount}/${TOTAL_SLOTS}`;
+      document.getElementById('headerProgressBar').style.width = `${pct}%`;
+    }
+
+    function renderSlotGrid() {
+      const grid = document.getElementById('shelfSlotGrid');
+      grid.innerHTML = '';
+
+      for (let i = 1; i <= TOTAL_SLOTS; i++) {
+        const isMapped = shelvesState[i] !== undefined;
+        const bTarget = isMapped ? `B${padZero(shelvesState[i])}` : '--';
+        
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => startEditing(i);
+        btn.className = `p-1.5 rounded-lg text-center transition flex flex-col items-center justify-center border text-[11px] font-bold ${
+          isMapped 
+            ? 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100' 
+            : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-100'
+        }`;
+
+        btn.title = isMapped ? `A${padZero(i)} está em ${bTarget} (Clique para editar)` : `A${padZero(i)} ainda pendente`;
+
+        btn.innerHTML = `
+          <span>A${padZero(i)}</span>
+          <span class="text-[9px] font-semibold ${isMapped ? 'text-emerald-700' : 'text-slate-300'}">${bTarget}</span>
+        `;
+        grid.appendChild(btn);
+      }
+    }
+
+    function renderRecentEntries() {
+      const container = document.getElementById('recentEntriesList');
+      const countEl = document.getElementById('recentEntriesCount');
+      const entries = Object.entries(shelvesState).map(([a, b]) => ({ a: parseInt(a, 10), b }));
+      
+      countEl.textContent = `${entries.length} mapeada(s)`;
+
+      if (entries.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-6 text-slate-400 text-xs">
+            <i data-lucide="clipboard-x" class="w-8 h-8 mx-auto stroke-1 mb-1.5 text-slate-300"></i>
+            Nenhuma posição foi gravada ainda.<br>Preencha os campos acima para começar.
+          </div>
+        `;
+        return;
+      }
+
+      // Sort by newest or natural order (descending by key)
+      entries.sort((x, y) => y.a - x.a);
+      const recent = entries.slice(0, 5);
+
+      container.innerHTML = recent.map(item => `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+          <div class="flex items-center gap-3">
+            <span class="font-bold text-slate-900 bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md">
+              A${padZero(item.a)}
+            </span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span class="font-bold text-slate-900 bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md">
+              B${padZero(item.b)}
+            </span>
+            ${item.a === item.b ? '<span class="text-[10px] text-slate-400 italic">(Sem alteração)</span>' : ''}
+          </div>
+          <div class="flex items-center gap-1">
+            <button 
+              type="button" 
+              onclick="startEditing(${item.a})" 
+              class="p-1.5 text-slate-600 hover:text-brand-600 hover:bg-slate-200/80 rounded-lg transition"
+              title="Editar"
+            >
+              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+            </button>
+            <button 
+              type="button" 
+              onclick="deleteEntry(${item.a})" 
+              class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+              title="Excluir"
+            >
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMetrics() {
+      const mappedKeys = Object.keys(shelvesState).map(k => parseInt(k, 10));
+      const mappedCount = mappedKeys.length;
+      const pendingCount = TOTAL_SLOTS - mappedCount;
+
+      let unchangedCount = 0;
+      let needMoveCount = 0;
+
+      for (const a of mappedKeys) {
+        if (shelvesState[a] === a) {
+          unchangedCount++;
+        } else {
+          needMoveCount++;
+        }
+      }
+
+      document.getElementById('statMapped').textContent = mappedCount;
+      document.getElementById('statMappedPercent').textContent = `${Math.round((mappedCount / TOTAL_SLOTS) * 100)}% concluído`;
+      document.getElementById('statPending').textContent = pendingCount;
+      document.getElementById('statUnchanged').textContent = unchangedCount;
+      document.getElementById('statNeedMove').textContent = needMoveCount;
+    }
+
+    function renderReportTable() {
+      const tbody = document.getElementById('reportTableBody');
+      const filterCountEl = document.getElementById('tableFilterCount');
+      
+      let rows = [];
+
+      for (let i = 1; i <= TOTAL_SLOTS; i++) {
+        const hasMapping = shelvesState[i] !== undefined;
+        const bVal = hasMapping ? shelvesState[i] : null;
+
+        // Apply search filter
+        if (currentSearchTerm) {
+          const term = currentSearchTerm.toLowerCase().replace(/[ab]/g, '').trim();
+          const matchA = i.toString().includes(term) || padZero(i).includes(term);
+          const matchB = bVal && (bVal.toString().includes(term) || padZero(bVal).includes(term));
+          if (!matchA && !matchB) continue;
+        }
+
+        // Apply dropdown filter
+        if (currentReportFilter === 'mapped' && !hasMapping) continue;
+        if (currentReportFilter === 'pending' && hasMapping) continue;
+        if (currentReportFilter === 'needs_relocation' && (!hasMapping || bVal === i)) continue;
+
+        rows.push({
+          oldNum: i,
+          oldCode: `A${padZero(i)}`,
+          newNum: bVal,
+          newCode: bVal ? `B${padZero(bVal)}` : 'Pendente',
+          isMapped: hasMapping,
+          isEqual: hasMapping && bVal === i
+        });
+      }
+
+      filterCountEl.textContent = `${rows.length} estante(s) listada(s)`;
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-slate-400 text-sm">
+              <i data-lucide="search-x" class="w-8 h-8 mx-auto stroke-1 mb-1 text-slate-300"></i>
+              Nenhuma estante corresponde aos filtros selecionados.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        let actionBadge = '';
+        if (!r.isMapped) {
+          actionBadge = '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">Aguardando mapeamento</span>';
+        } else if (r.isEqual) {
+          actionBadge = '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Não precisa mover acervo</span>';
+        } else {
+          actionBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/70">Mover livros de B${padZero(r.newNum)} ➔ B${padZero(r.oldNum)}</span>`;
+        }
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition text-slate-700">
+            <td class="py-3.5 px-4 font-bold text-slate-900">
+              <span class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-900 border border-indigo-200/60 px-2 py-1 rounded-md text-xs font-extrabold">
+                ${r.oldCode}
+              </span>
+            </td>
+            <td class="py-3.5 px-4 text-center text-slate-400">
+              <i data-lucide="arrow-right" class="w-4 h-4 mx-auto"></i>
+            </td>
+            <td class="py-3.5 px-4 font-bold">
+              ${r.isMapped 
+                ? `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-900 border border-emerald-200/60 px-2 py-1 rounded-md text-xs font-extrabold">${r.newCode}</span>` 
+                : `<span class="text-xs italic text-slate-400">Não informada</span>`
+              }
+            </td>
+            <td class="py-3.5 px-4 hidden md:table-cell text-xs">
+              ${actionBadge}
+            </td>
+            <td class="py-3.5 px-4 text-right no-print">
+              <div class="flex items-center justify-end gap-1">
+                <button 
+                  type="button" 
+                  onclick="startEditing(${r.oldNum})" 
+                  class="p-1.5 text-slate-600 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition"
+                  title="Editar"
+                >
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+                ${r.isMapped ? `
+                  <button 
+                    type="button" 
+                    onclick="deleteEntry(${r.oldNum})" 
+                    class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                    title="Excluir"
+                  >
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderRelocationGuide() {
+      const container = document.getElementById('relocationCardsContainer');
+      const mappedEntries = Object.entries(shelvesState).map(([a, b]) => ({
+        oldNum: parseInt(a, 10),
+        newNum: b
+      }));
+
+      // Filter to items that need physical book moving (A != B)
+      const needRelocation = mappedEntries.filter(item => item.oldNum !== item.newNum);
+
+      if (mappedEntries.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-sm">
+            Nenhum dado cadastrado ainda para gerar o roteiro.
+          </div>
+        `;
+        return;
+      }
+
+      if (needRelocation.length === 0) {
+        container.innerHTML = `
+          <div class="bg-emerald-50 border border-emerald-200 text-emerald-900 p-6 rounded-2xl text-center">
+            <i data-lucide="check-circle" class="w-8 h-8 mx-auto text-emerald-600 mb-2"></i>
+            <h4 class="font-bold">Todas as estantes mapeadas permaneceram no mesmo número relativo!</h4>
+            <p class="text-xs text-emerald-700 mt-1">Nenhum livro precisará ser trocado entre as estantes mapeadas até agora.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Sort relocation steps systematically by section (A01, A02, etc.)
+      needRelocation.sort((x, y) => x.oldNum - y.oldNum);
+
+      // Invert mapping lookup: which shelf A landed on physical slot B_k?
+      const physicalSlotOccupant = {};
+      for (const [a, b] of Object.entries(shelvesState)) {
+        physicalSlotOccupant[b] = parseInt(a, 10);
+      }
+
+      container.innerHTML = needRelocation.map((item, idx) => {
+        const acervoSection = `A${padZero(item.oldNum)}`;
+        const currentPhysicalLocation = `B${padZero(item.newNum)}`;
+        const targetPhysicalLocation = `B${padZero(item.oldNum)}`;
+
+        // Who is sitting at target location currently?
+        const currentOccupantAtTarget = physicalSlotOccupant[item.oldNum];
+        const occupantDesc = currentOccupantAtTarget !== undefined 
+          ? `(que hoje possui os livros da antiga A${padZero(currentOccupantAtTarget)})`
+          : `(ainda não mapeada ou vazia)`;
+
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5 transition hover:shadow-md">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
+                  ${idx + 1}
+                </span>
+                <span class="font-bold text-slate-900 text-sm sm:text-base">
+                  Acervo Seção ${acervoSection}
+                </span>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg">
+                Remanejamento Necessário
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm items-center">
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Onde os livros estão hoje</span>
+                <div class="font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
+                  <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i>
+                  <span>Estante física <strong class="text-indigo-600">${currentPhysicalLocation}</strong></span>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-center">
+                <div class="flex items-center gap-2 text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full text-xs">
+                  <span>Mover para</span>
+                  <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </div>
+              </div>
+
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Local Definitivo do Acervo</span>
+                <div class="font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
+                  <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+                  <span>Estante física <strong class="text-emerald-700">${targetPhysicalLocation}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-500 mt-3 pt-2.5 border-t border-slate-100 flex items-start gap-1.5">
+              <i data-lucide="info" class="w-4 h-4 text-slate-400 shrink-0 mt-0.5"></i>
+              <span>Retire o acervo ${acervoSection} que está temporariamente em <strong>${currentPhysicalLocation}</strong> e acomode na posição correta <strong>${targetPhysicalLocation}</strong> ${occupantDesc}.</span>
+            </p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function goToReportScreen() {
+      document.getElementById('screenEntry').classList.add('hidden');
+      document.getElementById('screenReport').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderReportTable();
+      renderRelocationGuide();
+      renderMetrics();
+      lucide.createIcons();
+    }
+
+    function goToEntryScreen() {
+      document.getElementById('screenReport').classList.add('hidden');
+      document.getElementById('screenEntry').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      suggestNextAvailableSlot();
+      renderAll();
+      lucide.createIcons();
+    }
+
+    function switchReportTab(tab) {
+      currentReportTab = tab;
+      const btnDirect = document.getElementById('tabBtnDirect');
+      const btnGuide = document.getElementById('tabBtnGuide');
+      const tabDirect = document.getElementById('reportTabDirect');
+      const tabGuide = document.getElementById('reportTabGuide');
+
+      if (tab === 'direct') {
+        tabDirect.classList.remove('hidden');
+        tabGuide.classList.add('hidden');
+        btnDirect.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
+        btnGuide.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+      } else {
+        tabDirect.classList.add('hidden');
+        tabGuide.classList.remove('hidden');
+        btnGuide.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
+        btnDirect.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+      }
+      lucide.createIcons();
+    }
+
+    function handleReportSearch(val) {
+      currentSearchTerm = val;
+      renderReportTable();
+      lucide.createIcons();
+    }
+
+    function handleFilterChange(val) {
+      currentReportFilter = val;
+      renderReportTable();
+      lucide.createIcons();
+    }
+
+    function toggleProgressOverview() {
+      const isReport = !document.getElementById('screenReport').classList.contains('hidden');
+      if (isReport) {
+        goToEntryScreen();
+      } else {
+        goToReportScreen();
+      }
+    }
+
+    function exportToExcel() {
+      try {
+        const rowsDirect = [];
+        // Header
+        rowsDirect.push([
+          "Posição Antiga (Acervo)", 
+          "Posição Nova (Física)", 
+          "Status da Estante", 
+          "Ação de Livros Recomendada"
+        ]);
+
+        for (let i = 1; i <= TOTAL_SLOTS; i++) {
+          const hasB = shelvesState[i] !== undefined;
+          const bCode = hasB ? `B${padZero(shelvesState[i])}` : "Não Mapeada";
+          let status = "Pendente";
+          let action = "Cadastrar posição física da estante";
+
+          if (hasB) {
+            if (shelvesState[i] === i) {
+              status = "Mesma Posição";
+              action = "Não precisa mover acervo";
+            } else {
+              status = "Remanejada";
+              action = `Mover livros de B${padZero(shelvesState[i])} para B${padZero(i)}`;
+            }
+          }
+
+          rowsDirect.push([`A${padZero(i)}`, bCode, status, action]);
+        }
+
+        // Second sheet: Relocation checklist
+        const rowsRelocation = [
+          ["Ordem", "Seção do Acervo", "Onde os livros estão hoje (Física)", "Destino Definitivo (Física)", "Status do Transporte"]
+        ];
+
+        let step = 1;
+        for (let i = 1; i <= TOTAL_SLOTS; i++) {
+          if (shelvesState[i] !== undefined && shelvesState[i] !== i) {
+            rowsRelocation.push([
+              step++,
+              `Acervo A${padZero(i)}`,
+              `Estante B${padZero(shelvesState[i])}`,
+              `Estante B${padZero(i)}`,
+              "[  ] Pendente"
+            ]);
+          }
+        }
+
+        const wb = XLSX.utils.book_new();
+        const wsDirect = XLSX.utils.aoa_to_sheet(rowsDirect);
+        const wsReloc = XLSX.utils.aoa_to_sheet(rowsRelocation);
+
+        // Styling widths
+        wsDirect['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 20 }, { wch: 45 }];
+        wsReloc['!cols'] = [{ wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 30 }, { wch: 20 }];
+
+        XLSX.utils.book_append_sheet(wb, wsDirect, "Mapeamento Estantes");
+        XLSX.utils.book_append_sheet(wb, wsReloc, "Roteiro Livros");
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `relatorio_mudanca_acervo_${dateStr}.xlsx`);
+        showToast("Planilha Excel (.xlsx) exportada com sucesso!", "success");
+      } catch (err) {
+        console.error("Erro ao gerar Excel:", err);
+        showToast("Falha ao exportar planilha. Tente novamente.", "error");
+      }
+    }
+
+    function exportToPdf() {
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const dateNow = new Date().toLocaleDateString('pt-BR');
+        const mappedCount = Object.keys(shelvesState).length;
+
+        // Header Design
+        doc.setFillColor(79, 70, 229); // brand-600
+        doc.rect(0, 0, 210, 24, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text("BIBLIOTECA - RELATÓRIO DE MUDANÇA DE ACERVO", 14, 12);
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Mapeamento das Estantes A01-A54 para B01-B54 | Data: ${dateNow}`, 14, 18);
+
+        // Metrics Summary Banner
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Progresso Geral: ${mappedCount} de ${TOTAL_SLOTS} lados mapeados (${Math.round((mappedCount / TOTAL_SLOTS) * 100)}%)`, 14, 32);
+
+        // Build data table
+        const tableData = [];
+        for (let i = 1; i <= TOTAL_SLOTS; i++) {
+          const hasB = shelvesState[i] !== undefined;
+          const bText = hasB ? `B${padZero(shelvesState[i])}` : 'Pendente';
+          let action = '-';
+          if (!hasB) {
+            action = 'Aguardando cadastro';
+          } else if (shelvesState[i] === i) {
+            action = 'Mesma posição (Sem alteração)';
+          } else {
+            action = `Mover acervo de B${padZero(shelvesState[i])} para B${padZero(i)}`;
+          }
+
+          tableData.push([`A${padZero(i)}`, bText, action]);
+        }
+
+        doc.autoTable({
+          startY: 36,
+          head: [['Posição Antiga', 'Posição Nova', 'Ação / Deslocamento de Livros']],
+          body: tableData,
+          theme: 'striped',
+          headStyles: {
+            fillColor: [67, 56, 202],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 9
+          },
+          bodyStyles: {
+            fontSize: 8,
+            cellPadding: 2
+          },
+          columnStyles: {
+            0: { cellWidth: 35, fontStyle: 'bold' },
+            1: { cellWidth: 35, fontStyle: 'bold' },
+            2: { cellWidth: 120 }
+          },
+          didDrawPage: function (data) {
+            // Footer page numbers
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Página ${doc.internal.getNumberOfPages()}`, 190, 290, { align: 'right' });
+          }
+        });
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        doc.save(`relatorio_mudanca_acervo_${dateStr}.pdf`);
+        showToast("Relatório PDF gerado e baixado!", "success");
+      } catch (err) {
+        console.error("Erro ao gerar PDF:", err);
+        showToast("Não foi possível gerar o PDF. Verifique se os dados estão corretos.", "error");
+      }
+    }
+
+    function padZero(num) {
+      if (num === null || num === undefined) return '';
+      return String(num).padStart(2, '0');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let bg = 'bg-slate-900 text-white';
+      let icon = 'info';
+
+      if (type === 'success') {
+        bg = 'bg-emerald-600 text-white';
+        icon = 'check-circle-2';
+      } else if (type === 'warning') {
+        bg = 'bg-amber-600 text-white';
+        icon = 'alert-triangle';
+      } else if (type === 'error') {
+        bg = 'bg-rose-600 text-white';
+        icon = 'alert-circle';
+      }
+
+      toast.className = `${bg} pointer-events-auto flex items-center justify-between p-3.5 rounded-xl shadow-lg text-sm font-medium transition-all duration-300 transform translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="${icon}" class="w-5 h-5 shrink-0"></i>
+          <span>${message}</span>
+        </div>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      // Trigger animation
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      // Auto dismiss
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function showCustomConfirm(title, message, onConfirm) {
+      const modal = document.getElementById('customConfirmModal');
+      const titleEl = document.getElementById('modalConfirmTitle');
+      const msgEl = document.getElementById('modalConfirmMessage');
+      const btnConfirm = document.getElementById('btnModalConfirm');
+      const btnCancel = document.getElementById('btnModalCancel');
+
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+
+      modal.classList.remove('hidden');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        btnConfirm.onclick = null;
+        btnCancel.onclick = null;
+      };
+
+      btnConfirm.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+
+      btnCancel.onclick = () => {
+        cleanup();
+      };
+    }
+  </script>
+</body>
+</html>
