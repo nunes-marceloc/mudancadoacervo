@@ -150,7 +150,7 @@
         <div class="flex items-center justify-between mb-4">
           <h3 id="formTitle" class="font-semibold text-slate-900 flex items-center gap-2">
             <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
-            Adicionar Mapeamento
+            <span>Adicionar Mapeamento</span>
           </h3>
           <span id="editModeBadge" class="hidden text-xs bg-amber-100 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full border border-amber-300">
             Modo de Edição
@@ -252,7 +252,7 @@
           </div>
         </div>
 
-        <div id="shelfSlotGrid" class="grid grid-cols-6 sm:grid-cols-9 gap-1.5 pt-2 custom-scrollbar max-h-56 overflow-y-auto">
+        <div id="shelfSlotGrid" class="grid grid-cols-6 sm:grid-cols-9 gap-1.5 pt-2 custom-scrollbar max-h-56 overflow-y-auto min-h-[120px]">
           <!-- Rendered dynamically via renderSlotGrid() -->
         </div>
       </div>
@@ -332,11 +332,21 @@
           <button 
             type="button" 
             onclick="exportToPdf()" 
-            title="Exportar Documento em PDF"
+            title="Exportar Relação de Posições (A -> B) em PDF"
             class="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
           >
             <i data-lucide="file-text" class="w-4 h-4"></i>
-            <span>PDF</span>
+            <span>PDF Posições</span>
+          </button>
+
+          <button 
+            type="button" 
+            onclick="exportGuideToPdf()" 
+            title="Exportar Roteiro Prático de Mudança dos Livros em PDF"
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
+          >
+            <i data-lucide="book-open-check" class="w-4 h-4"></i>
+            <span>PDF Roteiro</span>
           </button>
 
           <button 
@@ -464,7 +474,7 @@
 
       <!-- TAB 2: ROTEIRO PRÁTICO DE TRANSPORTE DOS LIVROS -->
       <div id="reportTabGuide" class="hidden space-y-4">
-        <div class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-md">
+        <div class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div class="flex items-start gap-3">
             <div class="p-2.5 bg-white/10 rounded-xl">
               <i data-lucide="compass" class="w-6 h-6 text-brand-300"></i>
@@ -476,6 +486,14 @@
               </p>
             </div>
           </div>
+          <button 
+            type="button" 
+            onclick="exportGuideToPdf()" 
+            class="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-950 hover:bg-indigo-50 text-xs font-bold rounded-xl shadow-sm transition active:scale-95 touch-manipulation shrink-0"
+          >
+            <i data-lucide="file-text" class="w-4 h-4 text-rose-600"></i>
+            <span>Baixar Roteiro em PDF</span>
+          </button>
         </div>
 
         <div id="relocationCardsContainer" class="space-y-3">
@@ -709,14 +727,35 @@
     let html5QrScanner = null;
     let activeTransferTab = 'qr';
 
-    // Initialize application when DOM is ready
-    window.addEventListener('DOMContentLoaded', () => {
-      loadState();
-      checkUrlHashData(); // Check if page opened with data encoded in URL
-      setupEventListeners();
-      renderAll();
-      lucide.createIcons();
-    });
+    // Safe Lucide icon initializer
+    function safeCreateIcons() {
+      try {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      } catch (err) {
+        console.warn("Lucide icons could not be rendered:", err);
+      }
+    }
+
+    // Initialize application when DOM is ready (defensive against already-loaded documents)
+    function initApp() {
+      try {
+        loadState();
+        checkUrlHashData(); // Check if page opened with data encoded in URL
+        setupEventListeners();
+        renderAll();
+        safeCreateIcons();
+      } catch (e) {
+        console.error("Initialization error in initApp:", e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
 
     function loadState() {
       try {
@@ -724,7 +763,6 @@
         if (saved) {
           shelvesState = JSON.parse(saved);
         } else {
-          // Pre-populate with empty state
           shelvesState = {};
         }
       } catch (e) {
@@ -741,12 +779,9 @@
       }
     }
 
-    /* ==========================================================================
-       TRANSFERÊNCIA ENTRE DISPOSITIVOS (QR CODE, LINK, CÓDIGO E ARQUIVO)
-       ========================================================================== */
-
-    // Compact serialization: e.g. "1:24|2:15|3:42" to optimize QR Code density and URL length
+    /* Compact serialization: e.g. "1:24|2:15|3:42" to optimize QR Code density and URL length */
     function serializeMapping(stateObj) {
+      if (!stateObj) return '';
       return Object.entries(stateObj)
         .map(([a, b]) => `${a}:${b}`)
         .join('|');
@@ -788,7 +823,6 @@
       return Object.keys(result).length > 0 ? result : null;
     }
 
-    // Auto-detect survey passed via URL hash (e.g. index.html#data=1:24|2:15)
     function checkUrlHashData() {
       const hash = window.location.hash;
       if (hash && hash.includes('data=')) {
@@ -802,7 +836,6 @@
             () => {
               shelvesState = parsedState;
               saveState();
-              // Remove hash from URL without reloading
               history.replaceState(null, document.title, window.location.pathname + window.location.search);
               renderAll();
               showToast(`Sucesso! ${count} estantes foram importadas com sucesso.`, 'success');
@@ -815,14 +848,16 @@
 
     function openTransferModal() {
       const modal = document.getElementById('transferModal');
+      if (!modal) return;
       modal.classList.remove('hidden');
       updateTransferModalContent();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function closeTransferModal() {
       stopQRScanner();
-      document.getElementById('transferModal').classList.add('hidden');
+      const modal = document.getElementById('transferModal');
+      if (modal) modal.classList.add('hidden');
     }
 
     function switchTransferTab(tab) {
@@ -834,7 +869,6 @@
       const pnlLink = document.getElementById('transferPanelLink');
       const pnlCode = document.getElementById('transferPanelCode');
 
-      // Stop camera if user leaves QR tab
       if (tab !== 'qr') {
         stopQRScanner();
       }
@@ -842,16 +876,16 @@
       const activeClass = 'py-2 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5';
       const inactiveClass = 'py-2 rounded-lg hover:text-slate-900 flex items-center justify-center gap-1.5';
 
-      btnQR.className = tab === 'qr' ? activeClass : inactiveClass;
-      btnLink.className = tab === 'link' ? activeClass : inactiveClass;
-      btnCode.className = tab === 'code' ? activeClass : inactiveClass;
+      if (btnQR) btnQR.className = tab === 'qr' ? activeClass : inactiveClass;
+      if (btnLink) btnLink.className = tab === 'link' ? activeClass : inactiveClass;
+      if (btnCode) btnCode.className = tab === 'code' ? activeClass : inactiveClass;
 
-      pnlQR.classList.toggle('hidden', tab !== 'qr');
-      pnlLink.classList.toggle('hidden', tab !== 'link');
-      pnlCode.classList.toggle('hidden', tab !== 'code');
+      if (pnlQR) pnlQR.classList.toggle('hidden', tab !== 'qr');
+      if (pnlLink) pnlLink.classList.toggle('hidden', tab !== 'link');
+      if (pnlCode) pnlCode.classList.toggle('hidden', tab !== 'code');
 
       updateTransferModalContent();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function toggleQRMode(mode) {
@@ -862,16 +896,16 @@
 
       if (mode === 'show') {
         stopQRScanner();
-        btnShow.className = 'flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs';
-        btnScan.className = 'flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60';
-        secDisplay.classList.remove('hidden');
-        secScan.classList.add('hidden');
+        if (btnShow) btnShow.className = 'flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs';
+        if (btnScan) btnScan.className = 'flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60';
+        if (secDisplay) secDisplay.classList.remove('hidden');
+        if (secScan) secScan.classList.add('hidden');
         generateCurrentQRCode();
       } else {
-        btnShow.className = 'flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60';
-        btnScan.className = 'flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs';
-        secDisplay.classList.add('hidden');
-        secScan.classList.remove('hidden');
+        if (btnShow) btnShow.className = 'flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60';
+        if (btnScan) btnScan.className = 'flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs';
+        if (secDisplay) secDisplay.classList.add('hidden');
+        if (secScan) secScan.classList.remove('hidden');
         startQRScanner();
       }
     }
@@ -880,18 +914,21 @@
       const count = Object.keys(shelvesState).length;
       const compactCode = serializeMapping(shelvesState);
       
-      // Update backup code text
-      document.getElementById('backupCodeTextarea').value = compactCode;
+      const backupEl = document.getElementById('backupCodeTextarea');
+      if (backupEl) backupEl.value = compactCode;
 
-      // Construct shareable link with hash
       const currentUrlNoHash = window.location.href.split('#')[0];
       const fullShareUrl = compactCode ? `${currentUrlNoHash}#data=${encodeURIComponent(compactCode)}` : currentUrlNoHash;
-      document.getElementById('shareableLinkInput').value = fullShareUrl;
+      
+      const shareInput = document.getElementById('shareableLinkInput');
+      if (shareInput) shareInput.value = fullShareUrl;
 
-      // Summary label
-      document.getElementById('qrDataSummary').textContent = count > 0 
-        ? `${count} de ${TOTAL_SLOTS} estantes mapeadas neste código.` 
-        : 'Nenhuma estante mapeada ainda.';
+      const summaryEl = document.getElementById('qrDataSummary');
+      if (summaryEl) {
+        summaryEl.textContent = count > 0 
+          ? `${count} de ${TOTAL_SLOTS} estantes mapeadas neste código.` 
+          : 'Nenhuma estante mapeada ainda.';
+      }
 
       if (activeTransferTab === 'qr') {
         generateCurrentQRCode();
@@ -900,6 +937,7 @@
 
     function generateCurrentQRCode() {
       const container = document.getElementById('qrcodeContainer');
+      if (!container) return;
       container.innerHTML = '';
 
       const compact = serializeMapping(shelvesState);
@@ -912,9 +950,13 @@
         return;
       }
 
-      // Generate share link or compact string
       const currentUrlNoHash = window.location.href.split('#')[0];
       const payload = `${currentUrlNoHash}#data=${encodeURIComponent(compact)}`;
+
+      if (typeof QRCode === 'undefined') {
+        container.innerHTML = `<span class="text-xs text-amber-600">Biblioteca QRCode indisponível. Utilize a aba Link Rápido ou Código.</span>`;
+        return;
+      }
 
       try {
         qrcodeInstance = new QRCode(container, {
@@ -937,39 +979,53 @@
       }
 
       const qrContainer = document.getElementById('qrReader');
+      if (!qrContainer) return;
       qrContainer.innerHTML = '';
 
-      html5QrScanner = new Html5Qrcode("qrReader");
+      if (typeof Html5Qrcode === 'undefined') {
+        showToast("Módulo de câmera não carregado. Utilize Link ou Código.", "warning");
+        return;
+      }
 
-      const config = { fps: 10, qrbox: { width: 200, height: 200 } };
-      
-      html5QrScanner.start(
-        { facingMode: "environment" },
-        config,
-        (decodedText) => {
-          // On successful scan
-          stopQRScanner();
-          handleScannedData(decodedText);
-        },
-        (errorMessage) => {
-          // Scanning in progress...
-        }
-      ).catch((err) => {
-        console.warn("Não foi possível acessar a câmera:", err);
-        showToast("Não foi possível acessar a câmera. Verifique as permissões ou use o Link/Código.", "warning");
+      try {
+        html5QrScanner = new Html5Qrcode("qrReader");
+        const config = { fps: 10, qrbox: { width: 200, height: 200 } };
+        
+        html5QrScanner.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            stopQRScanner();
+            handleScannedData(decodedText);
+          },
+          () => {
+            // Scanning ongoing
+          }
+        ).catch((err) => {
+          console.warn("Não foi possível acessar a câmera:", err);
+          showToast("Não foi possível acessar a câmera. Use o Link Rápido ou Código.", "warning");
+          toggleQRMode('show');
+        });
+      } catch (err) {
+        console.error("Erro ao iniciar leitor:", err);
         toggleQRMode('show');
-      });
+      }
     }
 
     function stopQRScanner() {
       if (html5QrScanner) {
-        html5QrScanner.stop().then(() => {
-          html5QrScanner.clear();
+        try {
+          html5QrScanner.stop().then(() => {
+            if (html5QrScanner) {
+              html5QrScanner.clear();
+              html5QrScanner = null;
+            }
+          }).catch(() => {
+            html5QrScanner = null;
+          });
+        } catch (e) {
           html5QrScanner = null;
-        }).catch((err) => {
-          console.error("Erro ao finalizar leitor de QR:", err);
-          html5QrScanner = null;
-        });
+        }
       }
     }
 
@@ -1002,6 +1058,7 @@
 
     function copyShareLink() {
       const input = document.getElementById('shareableLinkInput');
+      if (!input) return;
       input.select();
       input.setSelectionRange(0, 99999);
       document.execCommand('copy');
@@ -1009,7 +1066,8 @@
     }
 
     function shareViaWhatsApp() {
-      const link = document.getElementById('shareableLinkInput').value;
+      const input = document.getElementById('shareableLinkInput');
+      const link = input ? input.value : window.location.href;
       const count = Object.keys(shelvesState).length;
       const message = encodeURIComponent(
         `📚 *Mapeamento de Acervo - Biblioteca*\nSeguem os dados do levantamento de ${count} estantes:\n\n${link}`
@@ -1019,13 +1077,16 @@
 
     function copyBackupCode() {
       const textarea = document.getElementById('backupCodeTextarea');
+      if (!textarea) return;
       textarea.select();
       document.execCommand('copy');
       showToast("Código de backup copiado!", "success");
     }
 
     function applyBackupCodeFromTextarea() {
-      const text = document.getElementById('backupCodeTextarea').value;
+      const textarea = document.getElementById('backupCodeTextarea');
+      if (!textarea) return;
+      const text = textarea.value;
       const parsed = deserializeMapping(text);
       if (!parsed) {
         showToast("Código inválido ou vazio. Verifique o texto colado.", "error");
@@ -1113,18 +1174,18 @@
         }
       };
       reader.readAsText(file);
-      event.target.value = ''; // Reset input
+      event.target.value = '';
     }
 
     function setupEventListeners() {
       const inputOld = document.getElementById('inputOldNum');
       const inputNew = document.getElementById('inputNewNum');
 
-      // Auto jump to next input on mobile when 2 digits are entered
+      if (!inputOld || !inputNew) return;
+
       inputOld.addEventListener('input', (e) => {
         const val = e.target.value;
         if (val && parseInt(val, 10) > 5) {
-          // If typed single digit 6-9, or 2 digits, move focus to B
           if (val.length >= 2 || parseInt(val, 10) > 9) {
             inputNew.focus();
           }
@@ -1175,26 +1236,12 @@
         'success'
       );
 
-      // Reset form and prepare for next logical entry
+      // Reset form leaving fields blank and focus on old number
       resetForm();
-      
-      // Auto-suggest next unmapped 'A' slot
-      suggestNextAvailableSlot();
+      const inputOldEl = document.getElementById('inputOldNum');
+      if (inputOldEl) inputOldEl.focus();
 
       renderAll();
-    }
-
-    function suggestNextAvailableSlot() {
-      for (let i = 1; i <= TOTAL_SLOTS; i++) {
-        if (shelvesState[i] === undefined) {
-          const inputOld = document.getElementById('inputOldNum');
-          inputOld.value = i;
-          document.getElementById('inputNewNum').focus();
-          return;
-        }
-      }
-      // If all are mapped, just focus on old
-      document.getElementById('inputOldNum').focus();
     }
 
     function startEditing(oldNum) {
@@ -1203,45 +1250,58 @@
 
       goToEntryScreen();
 
-      document.getElementById('inputOldNum').value = oldNum;
-      document.getElementById('inputNewNum').value = currentB !== undefined ? currentB : '';
+      const inputOld = document.getElementById('inputOldNum');
+      const inputNew = document.getElementById('inputNewNum');
+      const formTitle = document.getElementById('formTitle');
+      const badge = document.getElementById('editModeBadge');
+      const btnText = document.getElementById('btnSubmitText');
+      const btnCancel = document.getElementById('btnCancelEdit');
 
-      document.getElementById('formTitle').innerHTML = `
-        <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
-        <span>Editar Mapeamento da Estante A${padZero(oldNum)}</span>
-      `;
-      document.getElementById('editModeBadge').classList.remove('hidden');
-      document.getElementById('btnSubmitText').textContent = 'Atualizar Posição';
-      document.getElementById('btnCancelEdit').classList.remove('hidden');
+      if (inputOld) inputOld.value = oldNum;
+      if (inputNew) {
+        inputNew.value = currentB !== undefined ? currentB : '';
+        inputNew.focus();
+      }
 
-      document.getElementById('inputNewNum').focus();
-      lucide.createIcons();
+      if (formTitle) {
+        formTitle.innerHTML = `
+          <i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i>
+          <span>Editar Mapeamento da Estante A${padZero(oldNum)}</span>
+        `;
+      }
+      if (badge) badge.classList.remove('hidden');
+      if (btnText) btnText.textContent = 'Atualizar Posição';
+      if (btnCancel) btnCancel.classList.remove('hidden');
+
+      safeCreateIcons();
     }
 
     function cancelEditing() {
       editingOldNumber = null;
       resetForm();
-      document.getElementById('formTitle').innerHTML = `
-        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
-        <span>Adicionar Mapeamento</span>
-      `;
-      document.getElementById('editModeBadge').classList.add('hidden');
-      document.getElementById('btnSubmitText').textContent = 'Registrar Posição';
-      document.getElementById('btnCancelEdit').classList.add('hidden');
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function resetForm() {
-      document.getElementById('inputOldNum').value = '';
-      document.getElementById('inputNewNum').value = '';
-      document.getElementById('editModeBadge').classList.add('hidden');
-      document.getElementById('btnSubmitText').textContent = 'Registrar Posição';
-      document.getElementById('btnCancelEdit').classList.add('hidden');
-      document.getElementById('formTitle').innerHTML = `
-        <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
-        <span>Adicionar Mapeamento</span>
-      `;
-      lucide.createIcons();
+      const inputOld = document.getElementById('inputOldNum');
+      const inputNew = document.getElementById('inputNewNum');
+      const badge = document.getElementById('editModeBadge');
+      const btnText = document.getElementById('btnSubmitText');
+      const btnCancel = document.getElementById('btnCancelEdit');
+      const formTitle = document.getElementById('formTitle');
+
+      if (inputOld) inputOld.value = '';
+      if (inputNew) inputNew.value = '';
+      if (badge) badge.classList.add('hidden');
+      if (btnText) btnText.textContent = 'Registrar Posição';
+      if (btnCancel) btnCancel.classList.add('hidden');
+      if (formTitle) {
+        formTitle.innerHTML = `
+          <i data-lucide="plus-circle" class="w-4 h-4 text-brand-600"></i>
+          <span>Adicionar Mapeamento</span>
+        `;
+      }
+      safeCreateIcons();
     }
 
     function deleteEntry(oldNum) {
@@ -1267,7 +1327,7 @@
       renderReportTable();
       renderRelocationGuide();
       renderMetrics();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function renderHeaderProgress() {
@@ -1282,7 +1342,9 @@
 
     function renderSlotGrid() {
       const grid = document.getElementById('shelfSlotGrid');
-      if (!grid) return;
+      if (!grid) {
+        return;
+      }
       grid.innerHTML = '';
 
       for (let i = 1; i <= TOTAL_SLOTS; i++) {
@@ -1327,7 +1389,6 @@
         return;
       }
 
-      // Sort by newest or natural order (descending by key)
       entries.sort((x, y) => y.a - x.a);
       const recent = entries.slice(0, 5);
 
@@ -1407,7 +1468,6 @@
         const hasMapping = shelvesState[i] !== undefined;
         const bVal = hasMapping ? shelvesState[i] : null;
 
-        // Apply search filter
         if (currentSearchTerm) {
           const term = currentSearchTerm.toLowerCase().replace(/[ab]/g, '').trim();
           const matchA = i.toString().includes(term) || padZero(i).includes(term);
@@ -1415,7 +1475,6 @@
           if (!matchA && !matchB) continue;
         }
 
-        // Apply dropdown filter
         if (currentReportFilter === 'mapped' && !hasMapping) continue;
         if (currentReportFilter === 'pending' && hasMapping) continue;
         if (currentReportFilter === 'needs_relocation' && (!hasMapping || bVal === i)) continue;
@@ -1509,7 +1568,6 @@
         newNum: b
       }));
 
-      // Filter to items that need physical book moving (A != B)
       const needRelocation = mappedEntries.filter(item => item.oldNum !== item.newNum);
 
       if (mappedEntries.length === 0) {
@@ -1532,10 +1590,8 @@
         return;
       }
 
-      // Sort relocation steps systematically by section (A01, A02, etc.)
       needRelocation.sort((x, y) => x.oldNum - y.oldNum);
 
-      // Invert mapping lookup: which shelf A landed on physical slot B_k?
       const physicalSlotOccupant = {};
       for (const [a, b] of Object.entries(shelvesState)) {
         physicalSlotOccupant[b] = parseInt(a, 10);
@@ -1546,7 +1602,6 @@
         const currentPhysicalLocation = `B${padZero(item.newNum)}`;
         const targetPhysicalLocation = `B${padZero(item.oldNum)}`;
 
-        // Who is sitting at target location currently?
         const currentOccupantAtTarget = physicalSlotOccupant[item.oldNum];
         const occupantDesc = currentOccupantAtTarget !== undefined 
           ? `(que hoje possui os livros da antiga A${padZero(currentOccupantAtTarget)})`
@@ -1611,7 +1666,7 @@
       renderReportTable();
       renderRelocationGuide();
       renderMetrics();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function goToEntryScreen() {
@@ -1620,9 +1675,11 @@
       if (screenReport) screenReport.classList.add('hidden');
       if (screenEntry) screenEntry.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      suggestNextAvailableSlot();
+      resetForm();
+      const inputOld = document.getElementById('inputOldNum');
+      if (inputOld) inputOld.focus();
       renderAll();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function switchReportTab(tab) {
@@ -1633,33 +1690,34 @@
       const tabGuide = document.getElementById('reportTabGuide');
 
       if (tab === 'direct') {
-        tabDirect.classList.remove('hidden');
-        tabGuide.classList.add('hidden');
-        btnDirect.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
-        btnGuide.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+        if (tabDirect) tabDirect.classList.remove('hidden');
+        if (tabGuide) tabGuide.classList.add('hidden');
+        if (btnDirect) btnDirect.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
+        if (btnGuide) btnGuide.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
       } else {
-        tabDirect.classList.add('hidden');
-        tabGuide.classList.remove('hidden');
-        btnGuide.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
-        btnDirect.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+        if (tabDirect) tabDirect.classList.add('hidden');
+        if (tabGuide) tabGuide.classList.remove('hidden');
+        if (btnGuide) btnGuide.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
+        if (btnDirect) btnDirect.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
       }
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function handleReportSearch(val) {
       currentSearchTerm = val;
       renderReportTable();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function handleFilterChange(val) {
       currentReportFilter = val;
       renderReportTable();
-      lucide.createIcons();
+      safeCreateIcons();
     }
 
     function toggleProgressOverview() {
-      const isReport = !document.getElementById('screenReport').classList.contains('hidden');
+      const screenReport = document.getElementById('screenReport');
+      const isReport = screenReport && !screenReport.classList.contains('hidden');
       if (isReport) {
         goToEntryScreen();
       } else {
@@ -1668,9 +1726,12 @@
     }
 
     function exportToExcel() {
+      if (typeof XLSX === 'undefined') {
+        showToast("Biblioteca de exportação Excel indisponível.", "error");
+        return;
+      }
       try {
         const rowsDirect = [];
-        // Header
         rowsDirect.push([
           "Posição Antiga (Acervo)", 
           "Posição Nova (Física)", 
@@ -1697,7 +1758,6 @@
           rowsDirect.push([`A${padZero(i)}`, bCode, status, action]);
         }
 
-        // Second sheet: Relocation checklist
         const rowsRelocation = [
           ["Ordem", "Seção do Acervo", "Onde os livros estão hoje (Física)", "Destino Definitivo (Física)", "Status do Transporte"]
         ];
@@ -1719,7 +1779,6 @@
         const wsDirect = XLSX.utils.aoa_to_sheet(rowsDirect);
         const wsReloc = XLSX.utils.aoa_to_sheet(rowsRelocation);
 
-        // Styling widths
         wsDirect['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 20 }, { wch: 45 }];
         wsReloc['!cols'] = [{ wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 30 }, { wch: 20 }];
 
@@ -1736,6 +1795,10 @@
     }
 
     function exportToPdf() {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("Biblioteca de PDF indisponível.", "error");
+        return;
+      }
       try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({
@@ -1747,8 +1810,7 @@
         const dateNow = new Date().toLocaleDateString('pt-BR');
         const mappedCount = Object.keys(shelvesState).length;
 
-        // Header Design
-        doc.setFillColor(79, 70, 229); // brand-600
+        doc.setFillColor(79, 70, 229);
         doc.rect(0, 0, 210, 24, 'F');
 
         doc.setTextColor(255, 255, 255);
@@ -1760,13 +1822,11 @@
         doc.setFont('helvetica', 'normal');
         doc.text(`Mapeamento das Estantes A01-A54 para B01-B54 | Data: ${dateNow}`, 14, 18);
 
-        // Metrics Summary Banner
         doc.setFontSize(10);
         doc.setTextColor(30, 41, 59);
         doc.setFont('helvetica', 'bold');
         doc.text(`Progresso Geral: ${mappedCount} de ${TOTAL_SLOTS} lados mapeados (${Math.round((mappedCount / TOTAL_SLOTS) * 100)}%)`, 14, 32);
 
-        // Build data table
         const tableData = [];
         for (let i = 1; i <= TOTAL_SLOTS; i++) {
           const hasB = shelvesState[i] !== undefined;
@@ -1804,7 +1864,6 @@
             2: { cellWidth: 120 }
           },
           didDrawPage: function (data) {
-            // Footer page numbers
             doc.setFontSize(8);
             doc.setTextColor(150);
             doc.text(`Página ${doc.internal.getNumberOfPages()}`, 190, 290, { align: 'right' });
@@ -1820,6 +1879,121 @@
       }
     }
 
+    function exportGuideToPdf() {
+      try {
+        const mappedEntries = Object.entries(shelvesState).map(([a, b]) => ({
+          oldNum: parseInt(a, 10),
+          newNum: b
+        }));
+
+        const needRelocation = mappedEntries.filter(item => item.oldNum !== item.newNum);
+
+        if (needRelocation.length === 0) {
+          showToast("Nenhum livro precisa ser movido no momento ou nenhuma estante foi cadastrada.", "info");
+          return;
+        }
+
+        needRelocation.sort((x, y) => x.oldNum - y.oldNum);
+
+        // Invert mapping lookup: which shelf A landed on physical slot B_k?
+        const physicalSlotOccupant = {};
+        for (const [a, b] of Object.entries(shelvesState)) {
+          physicalSlotOccupant[b] = parseInt(a, 10);
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const dateNow = new Date().toLocaleDateString('pt-BR');
+
+        // Header Design
+        doc.setFillColor(30, 27, 75); // indigo-950
+        doc.rect(0, 0, 210, 26, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(15);
+        doc.setFont('helvetica', 'bold');
+        doc.text("BIBLIOTECA - ROTEIRO DE TRANSPORTE DOS LIVROS", 14, 12);
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Guia Operacional Passo a Passo de Realocação do Acervo | Emissão: ${dateNow}`, 14, 18);
+
+        // Subhead summary
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Total de Seções a Transportar: ${needRelocation.length} lados de estante`, 14, 33);
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+        doc.text("Instruções: Retire os livros da estante de origem atual e transporte-os para a estante definitiva.", 14, 38);
+
+        // Build data table
+        const tableData = needRelocation.map((item, idx) => {
+          const acervo = `Acervo A${padZero(item.oldNum)}`;
+          const ondeEsta = `Estante B${padZero(item.newNum)}`;
+          const destino = `Estante B${padZero(item.oldNum)}`;
+          
+          const occ = physicalSlotOccupant[item.oldNum];
+          const obs = occ !== undefined 
+            ? `Destino hoje tem os livros de A${padZero(occ)}` 
+            : `Destino vazio / pendente`;
+
+          return [
+            String(idx + 1),
+            acervo,
+            ondeEsta,
+            destino,
+            obs,
+            "[   ]"
+          ];
+        });
+
+        doc.autoTable({
+          startY: 42,
+          head: [['#', 'Seção do Acervo', 'Onde retirar hoje', 'Destino Definitivo', 'Situação do Destino', 'Visto']],
+          body: tableData,
+          theme: 'striped',
+          headStyles: {
+            fillColor: [79, 70, 229], // brand-600
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 9
+          },
+          bodyStyles: {
+            fontSize: 8.5,
+            cellPadding: 2.8
+          },
+          columnStyles: {
+            0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 32, fontStyle: 'bold' },
+            2: { cellWidth: 35, fontStyle: 'bold', textColor: [190, 18, 60] },
+            3: { cellWidth: 35, fontStyle: 'bold', textColor: [4, 120, 87] },
+            4: { cellWidth: 62 },
+            5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }
+          },
+          didDrawPage: function (data) {
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`Página ${doc.internal.getNumberOfPages()} - Roteiro Operacional de Mudança`, 190, 290, { align: 'right' });
+          }
+        });
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        doc.save(`roteiro_mudanca_livros_${dateStr}.pdf`);
+        showToast("Roteiro de mudança em PDF gerado e baixado!", "success");
+      } catch (err) {
+        console.error("Erro ao gerar PDF do roteiro:", err);
+        showToast("Não foi possível gerar o PDF do roteiro.", "error");
+      }
+    }
+
     function padZero(num) {
       if (num === null || num === undefined) return '';
       return String(num).padStart(2, '0');
@@ -1827,6 +2001,7 @@
 
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
+      if (!container) return;
       const toast = document.createElement('div');
       
       let bg = 'bg-slate-900 text-white';
@@ -1852,14 +2027,12 @@
       `;
 
       container.appendChild(toast);
-      lucide.createIcons();
+      safeCreateIcons();
 
-      // Trigger animation
       setTimeout(() => {
         toast.classList.remove('translate-y-2', 'opacity-0');
       }, 10);
 
-      // Auto dismiss
       setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
@@ -1872,6 +2045,8 @@
       const msgEl = document.getElementById('modalConfirmMessage');
       const btnConfirm = document.getElementById('btnModalConfirm');
       const btnCancel = document.getElementById('btnModalCancel');
+
+      if (!modal || !titleEl || !msgEl || !btnConfirm || !btnCancel) return;
 
       titleEl.textContent = title;
       msgEl.textContent = message;
