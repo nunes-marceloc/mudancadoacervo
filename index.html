@@ -17,6 +17,12 @@
   <!-- jsPDF & AutoTable for PDF export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- QRCode.js para geração de QR Code direto na tela -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Html5-QRCode para leitura e escaneamento via câmera/webcam -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   
   <!-- Google Fonts Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -97,6 +103,16 @@
 
       <!-- Quick status counter -->
       <div class="flex items-center space-x-2">
+        <button 
+          id="btnTransferHeader" 
+          onclick="openTransferModal()" 
+          title="Transferir ou Sincronizar dados entre Celular e Computador"
+          class="flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 active:scale-95 transition text-xs font-semibold px-2.5 py-1.5 rounded-lg text-indigo-700 border border-indigo-200"
+        >
+          <i data-lucide="qr-code" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Transferir</span>
+        </button>
+
         <button id="btnQuickSummary" onclick="toggleProgressOverview()" class="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 transition text-xs font-semibold px-2.5 py-1.5 rounded-lg text-slate-700 border border-slate-200">
           <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
           <span id="headerCounter">0/54</span>
@@ -223,83 +239,86 @@
       <!-- Visual Map Grid of 54 slots (Mini visualizer) -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
         <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <i data-lucide="layout-grid" class="w-4 h-4 text-slate-600"></i>
-            <h3 class="font-semibold text-sm text-slate-800">Mapa Visual do Acervo (A01 a A54)</h3>
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+              <i data-lucide="layout-grid" class="w-4 h-4 text-brand-600"></i>
+              <span>Mapa Rápido do Acervo (A01 a A54)</span>
+            </h4>
+            <p class="text-[11px] text-slate-500">Toque em qualquer estante para editar ou conferir sua localização</p>
           </div>
-          <span class="text-xs font-medium text-slate-500" id="gridProgressLegend">
-            Toque em um número para editar
-          </span>
+          <div class="flex items-center gap-2 text-[11px] font-medium text-slate-500">
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Mapeada</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-200"></span> Pendente</span>
+          </div>
         </div>
 
-        <div class="grid grid-cols-6 sm:grid-cols-9 md:grid-cols-12 gap-1.5 max-h-56 overflow-y-auto p-1 bg-slate-50/70 rounded-xl border border-slate-200 custom-scrollbar" id="shelfSlotGrid">
-          <!-- Filled dynamically via renderSlotGrid() -->
-        </div>
-
-        <div class="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-slate-100 text-xs text-slate-600">
-          <div class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded bg-emerald-500"></span>
-            <span>Mapeada</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded bg-slate-200 border border-slate-300"></span>
-            <span>Pendente</span>
-          </div>
+        <div id="shelfSlotGrid" class="grid grid-cols-6 sm:grid-cols-9 gap-1.5 pt-2 custom-scrollbar max-h-56 overflow-y-auto">
+          <!-- Rendered dynamically via renderSlotGrid() -->
         </div>
       </div>
 
-      <!-- Ultimos Registros -->
+      <!-- Recent Entries Section -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold text-sm text-slate-800 flex items-center gap-2">
-            <i data-lucide="clock" class="w-4 h-4 text-slate-500"></i>
-            Últimos Registros
-          </h3>
-          <span class="text-xs text-slate-500 font-medium" id="recentEntriesCount">0 itens</span>
+          <h4 class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <i data-lucide="clock" class="w-4 h-4 text-slate-600"></i>
+            <span>Últimos Lançamentos</span>
+          </h4>
+          <span id="recentEntriesCount" class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">0 mapeada(s)</span>
         </div>
 
-        <div id="recentEntriesList" class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-          <!-- Entries rendered dynamically -->
+        <div id="recentEntriesList" class="space-y-2">
+          <!-- Rendered dynamically via renderRecentEntries() -->
         </div>
       </div>
 
-      <!-- Botão Finalizar -->
+      <!-- Big Action Button: Finalizar Levantamento e Abrir Relatório -->
       <div class="pt-2">
         <button 
           type="button" 
-          onclick="goToReportScreen()"
-          class="w-full bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-slate-900/20 flex items-center justify-between transition touch-manipulation group"
+          onclick="goToReportScreen()" 
+          class="w-full bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition touch-manipulation"
         >
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center group-hover:bg-brand-500 transition">
-              <i data-lucide="clipboard-check" class="w-5 h-5 text-white"></i>
-            </div>
-            <div class="text-left">
-              <div class="text-base font-bold">Finalizar e Ver Relações</div>
-              <div class="text-xs text-slate-300 font-normal">Visualizar matriz, roteiro de livros e exportar</div>
-            </div>
-          </div>
-          <i data-lucide="arrow-right" class="w-6 h-6 text-slate-300 group-hover:translate-x-1 transition-transform"></i>
+          <i data-lucide="check-check" class="w-5 h-5 text-emerald-400"></i>
+          <span class="text-base">Finalizar Levantamento / Ver Relatório Completo</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
         </button>
       </div>
     </section>
 
-    <!-- ==================== TELA 2: RELATÓRIO E RELAÇÃO ==================== -->
+    <!-- ==================== TELA 2: RELATÓRIO E EXPORTAÇÃO ==================== -->
     <section id="screenReport" class="hidden space-y-5">
-      
-      <!-- Barra Superior de Ações -->
-      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <button 
-          type="button" 
-          onclick="goToEntryScreen()"
-          class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-sm transition touch-manipulation"
-        >
-          <i data-lucide="arrow-left" class="w-4 h-4"></i>
-          <span>Inserir novos dados</span>
-        </button>
+      <!-- Barra Superior do Relatório -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+            <i data-lucide="clipboard-list" class="w-5 h-5 text-brand-600"></i>
+            Relatório de Realocação
+          </h2>
+          <p class="text-xs text-slate-500">Visão analítica e roteiro de transporte dos livros</p>
+        </div>
 
-        <div class="flex items-center gap-2">
-          <!-- Excel Export Button -->
+        <div class="flex items-center flex-wrap gap-2">
+          <button 
+            type="button" 
+            onclick="goToEntryScreen()" 
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition active:scale-95 touch-manipulation"
+            title="Voltar e cadastrar mais estantes"
+          >
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Inserir Dados</span>
+          </button>
+
+          <button 
+            type="button" 
+            onclick="openTransferModal()" 
+            title="Sincronizar ou Transferir dados para o Computador"
+            class="inline-flex items-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
+          >
+            <i data-lucide="qr-code" class="w-4 h-4"></i>
+            <span>Transferir</span>
+          </button>
+
           <button 
             type="button" 
             onclick="exportToExcel()" 
@@ -307,11 +326,9 @@
             class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
           >
             <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Exportar Excel</span>
-            <span class="sm:hidden">Excel</span>
+            <span>Excel</span>
           </button>
 
-          <!-- PDF Export Button -->
           <button 
             type="button" 
             onclick="exportToPdf()" 
@@ -319,16 +336,14 @@
             class="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
           >
             <i data-lucide="file-text" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Exportar PDF</span>
-            <span class="sm:hidden">PDF</span>
+            <span>PDF</span>
           </button>
 
-          <!-- Print button -->
           <button 
             type="button" 
             onclick="window.print()" 
             title="Imprimir"
-            class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+            class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition no-print"
           >
             <i data-lucide="printer" class="w-4 h-4"></i>
           </button>
@@ -468,7 +483,7 @@
         </div>
       </div>
 
-      <!-- Floating button on report screen to add more items -->
+      <!-- Botão inferior para voltar ao cadastro -->
       <div class="pt-4 text-center">
         <button 
           type="button" 
@@ -511,6 +526,169 @@
     </div>
   </div>
 
+  <!-- MODAL DE TRANSFERÊNCIA E SINCRONIZAÇÃO (QR CODE, LINK & CÓDIGO) -->
+  <div id="transferModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden overflow-y-auto">
+    <div class="bg-white w-full max-w-lg rounded-2xl p-5 sm:p-6 shadow-2xl border border-slate-100 my-8">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+            <i data-lucide="smartphone" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Transferir Levantamento</h3>
+            <p class="text-xs text-slate-500">Mova os dados entre celular e computador facilmente</p>
+          </div>
+        </div>
+        <button onclick="closeTransferModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Abas de Método -->
+      <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl mt-4 text-xs font-bold text-slate-600">
+        <button id="tabTransferQRBtn" onclick="switchTransferTab('qr')" class="py-2 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5">
+          <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+          <span>QR Code</span>
+        </button>
+        <button id="tabTransferLinkBtn" onclick="switchTransferTab('link')" class="py-2 rounded-lg hover:text-slate-900 flex items-center justify-center gap-1.5">
+          <i data-lucide="link" class="w-3.5 h-3.5"></i>
+          <span>Link Rápido</span>
+        </button>
+        <button id="tabTransferCodeBtn" onclick="switchTransferTab('code')" class="py-2 rounded-lg hover:text-slate-900 flex items-center justify-center gap-1.5">
+          <i data-lucide="file-code" class="w-3.5 h-3.5"></i>
+          <span>Código / Arquivo</span>
+        </button>
+      </div>
+
+      <!-- PAINEL 1: QR CODE (Gerar na tela ou Ler com Câmera) -->
+      <div id="transferPanelQR" class="mt-4 space-y-4">
+        
+        <!-- Toggle: Mostrar QR Code vs Escanear com Câmera -->
+        <div class="flex items-center justify-center gap-2 p-1 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs font-semibold text-indigo-900">
+          <button id="subTabShowQR" onclick="toggleQRMode('show')" class="flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs">
+            Mostrar QR Code
+          </button>
+          <button id="subTabScanQR" onclick="toggleQRMode('scan')" class="flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60">
+            Escanear com a Câmera
+          </button>
+        </div>
+
+        <!-- Visão 1: Exibir QR Code gerado dos dados atuais -->
+        <div id="qrDisplaySection" class="text-center space-y-3">
+          <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 inline-block mx-auto shadow-inner">
+            <div id="qrcodeContainer" class="flex justify-center items-center w-52 h-52 mx-auto"></div>
+          </div>
+          <p class="text-xs text-slate-600 max-w-xs mx-auto">
+            Abra este aplicativo no computador e clique em <strong>"Escanear com a Câmera"</strong> apontando a webcam para este código, ou use a câmera padrão do celular.
+          </p>
+          <div class="text-[11px] text-slate-400" id="qrDataSummary"></div>
+        </div>
+
+        <!-- Visão 2: Câmera/Scanner do navegador para ler o QR Code -->
+        <div id="qrScannerSection" class="hidden text-center space-y-3">
+          <div id="qrReader" class="w-full max-w-sm mx-auto overflow-hidden rounded-2xl border-2 border-brand-500 bg-black min-h-[220px]"></div>
+          <p class="text-xs text-slate-600">
+            Aponte a câmera para o QR Code gerado no outro aparelho para importar os dados instantaneamente.
+          </p>
+          <button 
+            type="button" 
+            onclick="stopQRScanner()" 
+            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
+          >
+            Pausar Câmera
+          </button>
+        </div>
+      </div>
+
+      <!-- PAINEL 2: LINK RÁPIDO / WHATSAPP -->
+      <div id="transferPanelLink" class="hidden mt-4 space-y-3">
+        <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl text-xs text-blue-900 leading-relaxed">
+          <strong>A forma mais rápida sem precisar de câmera:</strong> gere um link direto contendo os dados do levantamento e envie para o seu próprio WhatsApp Web ou e-mail. Ao clicar no computador, todos os dados abrem na hora!
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-xs font-bold text-slate-700">Link direto com os dados:</label>
+          <div class="flex items-center gap-2">
+            <input 
+              type="text" 
+              id="shareableLinkInput" 
+              readonly 
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-mono select-all"
+            >
+            <button 
+              type="button" 
+              onclick="copyShareLink()" 
+              class="px-3 py-2 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white font-semibold text-xs rounded-xl shrink-0 transition"
+            >
+              Copiar
+            </button>
+          </div>
+        </div>
+
+        <button 
+          type="button" 
+          onclick="shareViaWhatsApp()" 
+          class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition"
+        >
+          <i data-lucide="message-circle" class="w-4 h-4"></i>
+          <span>Enviar Levantamento via WhatsApp</span>
+        </button>
+      </div>
+
+      <!-- PAINEL 3: CÓDIGO TEXTO / ARQUIVO DE BACKUP -->
+      <div id="transferPanelCode" class="hidden mt-4 space-y-3">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-bold text-slate-700">Código de Backup (Compacto):</label>
+          <textarea 
+            id="backupCodeTextarea" 
+            rows="3" 
+            placeholder="Cole aqui o código gerado no outro dispositivo..." 
+            class="w-full p-2.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-brand-600"
+          ></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button 
+            type="button" 
+            onclick="copyBackupCode()" 
+            class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+          >
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Copiar Código</span>
+          </button>
+          <button 
+            type="button" 
+            onclick="applyBackupCodeFromTextarea()" 
+            class="py-2.5 px-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition"
+          >
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Importar Código</span>
+          </button>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <button 
+            type="button" 
+            onclick="downloadBackupFile()" 
+            class="text-xs text-slate-600 hover:text-brand-600 font-semibold flex items-center gap-1 p-1"
+          >
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Baixar Arquivo (.json)</span>
+          </button>
+
+          <label class="cursor-pointer text-xs text-slate-600 hover:text-brand-600 font-semibold flex items-center gap-1 p-1">
+            <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+            <span>Carregar Arquivo</span>
+            <input type="file" id="backupFileInput" accept=".json,.txt" class="hidden" onchange="uploadBackupFile(event)">
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed bottom-5 right-5 left-5 sm:left-auto sm:w-96 z-50 pointer-events-none flex flex-col gap-2"></div>
 
@@ -526,9 +704,15 @@
     let currentSearchTerm = '';
     let currentReportTab = 'direct';
 
+    /* QR Code and Scanner instances */
+    let qrcodeInstance = null;
+    let html5QrScanner = null;
+    let activeTransferTab = 'qr';
+
     // Initialize application when DOM is ready
     window.addEventListener('DOMContentLoaded', () => {
       loadState();
+      checkUrlHashData(); // Check if page opened with data encoded in URL
       setupEventListeners();
       renderAll();
       lucide.createIcons();
@@ -555,6 +739,381 @@
       } catch (e) {
         console.error('Error saving state:', e);
       }
+    }
+
+    /* ==========================================================================
+       TRANSFERÊNCIA ENTRE DISPOSITIVOS (QR CODE, LINK, CÓDIGO E ARQUIVO)
+       ========================================================================== */
+
+    // Compact serialization: e.g. "1:24|2:15|3:42" to optimize QR Code density and URL length
+    function serializeMapping(stateObj) {
+      return Object.entries(stateObj)
+        .map(([a, b]) => `${a}:${b}`)
+        .join('|');
+    }
+
+    function deserializeMapping(rawStr) {
+      if (!rawStr || typeof rawStr !== 'string') return null;
+      const cleanStr = decodeURIComponent(rawStr).trim();
+      
+      // Try parsing JSON format first (fallback)
+      if (cleanStr.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(cleanStr);
+          const validated = {};
+          for (const [k, v] of Object.entries(parsed)) {
+            const kn = parseInt(k, 10);
+            const vn = parseInt(v, 10);
+            if (!isNaN(kn) && !isNaN(vn) && kn >= 1 && kn <= TOTAL_SLOTS && vn >= 1 && vn <= TOTAL_SLOTS) {
+              validated[kn] = vn;
+            }
+          }
+          return Object.keys(validated).length > 0 ? validated : null;
+        } catch (e) {
+          // continue to pipe format
+        }
+      }
+
+      // Parse compact "a:b|a:b" format
+      const pairs = cleanStr.split('|');
+      const result = {};
+      for (const pair of pairs) {
+        const [aStr, bStr] = pair.split(':');
+        const a = parseInt(aStr, 10);
+        const b = parseInt(bStr, 10);
+        if (!isNaN(a) && !isNaN(b) && a >= 1 && a <= TOTAL_SLOTS && b >= 1 && b <= TOTAL_SLOTS) {
+          result[a] = b;
+        }
+      }
+      return Object.keys(result).length > 0 ? result : null;
+    }
+
+    // Auto-detect survey passed via URL hash (e.g. index.html#data=1:24|2:15)
+    function checkUrlHashData() {
+      const hash = window.location.hash;
+      if (hash && hash.includes('data=')) {
+        const rawPayload = hash.split('data=')[1];
+        const parsedState = deserializeMapping(rawPayload);
+        if (parsedState) {
+          const count = Object.keys(parsedState).length;
+          showCustomConfirm(
+            "Importar Levantamento Recebido",
+            `Foram encontrados ${count} mapeamentos de estantes neste link. Deseja carregar esses dados no aplicativo agora?`,
+            () => {
+              shelvesState = parsedState;
+              saveState();
+              // Remove hash from URL without reloading
+              history.replaceState(null, document.title, window.location.pathname + window.location.search);
+              renderAll();
+              showToast(`Sucesso! ${count} estantes foram importadas com sucesso.`, 'success');
+              goToReportScreen();
+            }
+          );
+        }
+      }
+    }
+
+    function openTransferModal() {
+      const modal = document.getElementById('transferModal');
+      modal.classList.remove('hidden');
+      updateTransferModalContent();
+      lucide.createIcons();
+    }
+
+    function closeTransferModal() {
+      stopQRScanner();
+      document.getElementById('transferModal').classList.add('hidden');
+    }
+
+    function switchTransferTab(tab) {
+      activeTransferTab = tab;
+      const btnQR = document.getElementById('tabTransferQRBtn');
+      const btnLink = document.getElementById('tabTransferLinkBtn');
+      const btnCode = document.getElementById('tabTransferCodeBtn');
+      const pnlQR = document.getElementById('transferPanelQR');
+      const pnlLink = document.getElementById('transferPanelLink');
+      const pnlCode = document.getElementById('transferPanelCode');
+
+      // Stop camera if user leaves QR tab
+      if (tab !== 'qr') {
+        stopQRScanner();
+      }
+
+      const activeClass = 'py-2 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5';
+      const inactiveClass = 'py-2 rounded-lg hover:text-slate-900 flex items-center justify-center gap-1.5';
+
+      btnQR.className = tab === 'qr' ? activeClass : inactiveClass;
+      btnLink.className = tab === 'link' ? activeClass : inactiveClass;
+      btnCode.className = tab === 'code' ? activeClass : inactiveClass;
+
+      pnlQR.classList.toggle('hidden', tab !== 'qr');
+      pnlLink.classList.toggle('hidden', tab !== 'link');
+      pnlCode.classList.toggle('hidden', tab !== 'code');
+
+      updateTransferModalContent();
+      lucide.createIcons();
+    }
+
+    function toggleQRMode(mode) {
+      const btnShow = document.getElementById('subTabShowQR');
+      const btnScan = document.getElementById('subTabScanQR');
+      const secDisplay = document.getElementById('qrDisplaySection');
+      const secScan = document.getElementById('qrScannerSection');
+
+      if (mode === 'show') {
+        stopQRScanner();
+        btnShow.className = 'flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs';
+        btnScan.className = 'flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60';
+        secDisplay.classList.remove('hidden');
+        secScan.classList.add('hidden');
+        generateCurrentQRCode();
+      } else {
+        btnShow.className = 'flex-1 py-1.5 px-2 rounded-lg hover:bg-white/60';
+        btnScan.className = 'flex-1 py-1.5 px-2 rounded-lg bg-white shadow-xs';
+        secDisplay.classList.add('hidden');
+        secScan.classList.remove('hidden');
+        startQRScanner();
+      }
+    }
+
+    function updateTransferModalContent() {
+      const count = Object.keys(shelvesState).length;
+      const compactCode = serializeMapping(shelvesState);
+      
+      // Update backup code text
+      document.getElementById('backupCodeTextarea').value = compactCode;
+
+      // Construct shareable link with hash
+      const currentUrlNoHash = window.location.href.split('#')[0];
+      const fullShareUrl = compactCode ? `${currentUrlNoHash}#data=${encodeURIComponent(compactCode)}` : currentUrlNoHash;
+      document.getElementById('shareableLinkInput').value = fullShareUrl;
+
+      // Summary label
+      document.getElementById('qrDataSummary').textContent = count > 0 
+        ? `${count} de ${TOTAL_SLOTS} estantes mapeadas neste código.` 
+        : 'Nenhuma estante mapeada ainda.';
+
+      if (activeTransferTab === 'qr') {
+        generateCurrentQRCode();
+      }
+    }
+
+    function generateCurrentQRCode() {
+      const container = document.getElementById('qrcodeContainer');
+      container.innerHTML = '';
+
+      const compact = serializeMapping(shelvesState);
+      if (!compact) {
+        container.innerHTML = `
+          <div class="text-xs text-slate-400 p-4">
+            Cadastre ao menos uma estante para gerar o QR Code.
+          </div>
+        `;
+        return;
+      }
+
+      // Generate share link or compact string
+      const currentUrlNoHash = window.location.href.split('#')[0];
+      const payload = `${currentUrlNoHash}#data=${encodeURIComponent(compact)}`;
+
+      try {
+        qrcodeInstance = new QRCode(container, {
+          text: payload,
+          width: 200,
+          height: 200,
+          colorDark: "#1e1b4b",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (e) {
+        console.error("Erro ao desenhar QR Code:", e);
+        container.innerHTML = `<span class="text-xs text-rose-500">Erro ao gerar código gráfico.</span>`;
+      }
+    }
+
+    function startQRScanner() {
+      if (html5QrScanner) {
+        return;
+      }
+
+      const qrContainer = document.getElementById('qrReader');
+      qrContainer.innerHTML = '';
+
+      html5QrScanner = new Html5Qrcode("qrReader");
+
+      const config = { fps: 10, qrbox: { width: 200, height: 200 } };
+      
+      html5QrScanner.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          // On successful scan
+          stopQRScanner();
+          handleScannedData(decodedText);
+        },
+        (errorMessage) => {
+          // Scanning in progress...
+        }
+      ).catch((err) => {
+        console.warn("Não foi possível acessar a câmera:", err);
+        showToast("Não foi possível acessar a câmera. Verifique as permissões ou use o Link/Código.", "warning");
+        toggleQRMode('show');
+      });
+    }
+
+    function stopQRScanner() {
+      if (html5QrScanner) {
+        html5QrScanner.stop().then(() => {
+          html5QrScanner.clear();
+          html5QrScanner = null;
+        }).catch((err) => {
+          console.error("Erro ao finalizar leitor de QR:", err);
+          html5QrScanner = null;
+        });
+      }
+    }
+
+    function handleScannedData(rawText) {
+      let payload = rawText;
+      if (payload.includes('data=')) {
+        payload = payload.split('data=')[1];
+      }
+
+      const imported = deserializeMapping(payload);
+      if (!imported) {
+        showToast("O QR Code escaneado não contém um formato de mapeamento reconhecido.", "error");
+        return;
+      }
+
+      const count = Object.keys(imported).length;
+      showCustomConfirm(
+        "Importação Concluída",
+        `Deseja carregar as ${count} estantes escaneadas do QR Code? O acervo atual será atualizado.`,
+        () => {
+          shelvesState = imported;
+          saveState();
+          renderAll();
+          closeTransferModal();
+          showToast(`${count} estantes carregadas com sucesso!`, 'success');
+          goToReportScreen();
+        }
+      );
+    }
+
+    function copyShareLink() {
+      const input = document.getElementById('shareableLinkInput');
+      input.select();
+      input.setSelectionRange(0, 99999);
+      document.execCommand('copy');
+      showToast("Link copiado para a área de transferência!", "success");
+    }
+
+    function shareViaWhatsApp() {
+      const link = document.getElementById('shareableLinkInput').value;
+      const count = Object.keys(shelvesState).length;
+      const message = encodeURIComponent(
+        `📚 *Mapeamento de Acervo - Biblioteca*\nSeguem os dados do levantamento de ${count} estantes:\n\n${link}`
+      );
+      window.open(`https://api.whatsapp.com/send?text=${message}`, '_blank');
+    }
+
+    function copyBackupCode() {
+      const textarea = document.getElementById('backupCodeTextarea');
+      textarea.select();
+      document.execCommand('copy');
+      showToast("Código de backup copiado!", "success");
+    }
+
+    function applyBackupCodeFromTextarea() {
+      const text = document.getElementById('backupCodeTextarea').value;
+      const parsed = deserializeMapping(text);
+      if (!parsed) {
+        showToast("Código inválido ou vazio. Verifique o texto colado.", "error");
+        return;
+      }
+
+      const count = Object.keys(parsed).length;
+      showCustomConfirm(
+        "Confirmar Importação de Código",
+        `Deseja substituir o mapa atual pelas ${count} estantes informadas no código?`,
+        () => {
+          shelvesState = parsed;
+          saveState();
+          renderAll();
+          closeTransferModal();
+          showToast(`${count} estantes foram importadas com sucesso!`, "success");
+          goToReportScreen();
+        }
+      );
+    }
+
+    function downloadBackupFile() {
+      try {
+        const payload = JSON.stringify({
+          app: "MapeadorBiblioteca",
+          version: "2.0",
+          exportDate: new Date().toISOString(),
+          totalSlots: TOTAL_SLOTS,
+          shelves: shelvesState
+        }, null, 2);
+
+        const blob = new Blob([payload], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_acervo_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast("Arquivo de backup baixado com sucesso!", "success");
+      } catch (e) {
+        showToast("Não foi possível gerar o arquivo de backup.", "error");
+      }
+    }
+
+    function uploadBackupFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target.result;
+          let parsedState = null;
+
+          if (content.trim().startsWith('{')) {
+            const json = JSON.parse(content);
+            parsedState = json.shelves ? deserializeMapping(JSON.stringify(json.shelves)) : deserializeMapping(content);
+          } else {
+            parsedState = deserializeMapping(content);
+          }
+
+          if (!parsedState) {
+            showToast("Estrutura do arquivo inválida.", "error");
+            return;
+          }
+
+          const count = Object.keys(parsedState).length;
+          showCustomConfirm(
+            "Restaurar Arquivo de Backup",
+            `Deseja carregar as ${count} estantes contidas no arquivo "${file.name}"?`,
+            () => {
+              shelvesState = parsedState;
+              saveState();
+              renderAll();
+              closeTransferModal();
+              showToast(`Backup restaurado: ${count} estantes carregadas!`, "success");
+              goToReportScreen();
+            }
+          );
+        } catch (err) {
+          console.error("Erro ao ler arquivo:", err);
+          showToast("Arquivo ilegível ou corrompido.", "error");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = ''; // Reset input
     }
 
     function setupEventListeners() {
@@ -712,15 +1271,18 @@
     }
 
     function renderHeaderProgress() {
+      const elCount = document.getElementById('headerCounter');
+      const elBar = document.getElementById('headerProgressBar');
       const mappedCount = Object.keys(shelvesState).length;
       const pct = Math.round((mappedCount / TOTAL_SLOTS) * 100);
       
-      document.getElementById('headerCounter').textContent = `${mappedCount}/${TOTAL_SLOTS}`;
-      document.getElementById('headerProgressBar').style.width = `${pct}%`;
+      if (elCount) elCount.textContent = `${mappedCount}/${TOTAL_SLOTS}`;
+      if (elBar) elBar.style.width = `${pct}%`;
     }
 
     function renderSlotGrid() {
       const grid = document.getElementById('shelfSlotGrid');
+      if (!grid) return;
       grid.innerHTML = '';
 
       for (let i = 1; i <= TOTAL_SLOTS; i++) {
@@ -749,9 +1311,11 @@
     function renderRecentEntries() {
       const container = document.getElementById('recentEntriesList');
       const countEl = document.getElementById('recentEntriesCount');
+      if (!container) return;
+
       const entries = Object.entries(shelvesState).map(([a, b]) => ({ a: parseInt(a, 10), b }));
       
-      countEl.textContent = `${entries.length} mapeada(s)`;
+      if (countEl) countEl.textContent = `${entries.length} mapeada(s)`;
 
       if (entries.length === 0) {
         container.innerHTML = `
@@ -802,6 +1366,14 @@
     }
 
     function renderMetrics() {
+      const elMapped = document.getElementById('statMapped');
+      const elPct = document.getElementById('statMappedPercent');
+      const elPending = document.getElementById('statPending');
+      const elUnchanged = document.getElementById('statUnchanged');
+      const elNeedMove = document.getElementById('statNeedMove');
+
+      if (!elMapped) return;
+
       const mappedKeys = Object.keys(shelvesState).map(k => parseInt(k, 10));
       const mappedCount = mappedKeys.length;
       const pendingCount = TOTAL_SLOTS - mappedCount;
@@ -817,16 +1389,17 @@
         }
       }
 
-      document.getElementById('statMapped').textContent = mappedCount;
-      document.getElementById('statMappedPercent').textContent = `${Math.round((mappedCount / TOTAL_SLOTS) * 100)}% concluído`;
-      document.getElementById('statPending').textContent = pendingCount;
-      document.getElementById('statUnchanged').textContent = unchangedCount;
-      document.getElementById('statNeedMove').textContent = needMoveCount;
+      elMapped.textContent = mappedCount;
+      if (elPct) elPct.textContent = `${Math.round((mappedCount / TOTAL_SLOTS) * 100)}% concluído`;
+      if (elPending) elPending.textContent = pendingCount;
+      if (elUnchanged) elUnchanged.textContent = unchangedCount;
+      if (elNeedMove) elNeedMove.textContent = needMoveCount;
     }
 
     function renderReportTable() {
       const tbody = document.getElementById('reportTableBody');
       const filterCountEl = document.getElementById('tableFilterCount');
+      if (!tbody) return;
       
       let rows = [];
 
@@ -857,7 +1430,7 @@
         });
       }
 
-      filterCountEl.textContent = `${rows.length} estante(s) listada(s)`;
+      if (filterCountEl) filterCountEl.textContent = `${rows.length} estante(s) listada(s)`;
 
       if (rows.length === 0) {
         tbody.innerHTML = `
@@ -929,6 +1502,8 @@
 
     function renderRelocationGuide() {
       const container = document.getElementById('relocationCardsContainer');
+      if (!container) return;
+
       const mappedEntries = Object.entries(shelvesState).map(([a, b]) => ({
         oldNum: parseInt(a, 10),
         newNum: b
@@ -1028,8 +1603,10 @@
     }
 
     function goToReportScreen() {
-      document.getElementById('screenEntry').classList.add('hidden');
-      document.getElementById('screenReport').classList.remove('hidden');
+      const screenEntry = document.getElementById('screenEntry');
+      const screenReport = document.getElementById('screenReport');
+      if (screenEntry) screenEntry.classList.add('hidden');
+      if (screenReport) screenReport.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       renderReportTable();
       renderRelocationGuide();
@@ -1038,8 +1615,10 @@
     }
 
     function goToEntryScreen() {
-      document.getElementById('screenReport').classList.add('hidden');
-      document.getElementById('screenEntry').classList.remove('hidden');
+      const screenEntry = document.getElementById('screenEntry');
+      const screenReport = document.getElementById('screenReport');
+      if (screenReport) screenReport.classList.add('hidden');
+      if (screenEntry) screenEntry.classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       suggestNextAvailableSlot();
       renderAll();
