@@ -2370,9 +2370,8 @@
         });
 
         const dateNow = new Date().toLocaleDateString('pt-BR');
-        let currentY = 14;
 
-        // Se o modo for 'execution' ou 'both', gera a tabela de Ordem de Execução
+        // Se o modo for 'execution' ou 'both', gera a tabela de Ordem do Trabalho (B ➔ B)
         if (mode === 'execution' || mode === 'both') {
           doc.setFillColor(30, 27, 75); // indigo-950
           doc.rect(0, 0, 210, 26, 'F');
@@ -2380,7 +2379,7 @@
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(14);
           doc.setFont('helvetica', 'bold');
-          doc.text("BIBLIOTECA - ROTEIRO EM ORDEM DE EXECUÇÃO", 14, 11);
+          doc.text("BIBLIOTECA - ROTEIRO EM ORDEM DO TRABALHO", 14, 11);
 
           doc.setFontSize(8.5);
           doc.setFont('helvetica', 'normal');
@@ -2391,29 +2390,25 @@
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(51, 65, 85);
           doc.text(
-            "Instruções: Siga os passos # 1, # 2... A estante de destino de uma linha é de onde você retira os livros na etapa seguinte.", 
+            "Instruções: Siga os passos numerados (# 1, # 2...). A estante de destino de uma linha é de onde você retira os livros na etapa seguinte.", 
             14, 
             33
           );
 
           const execTableRows = relocData.executionSteps.map(step => {
-            const destObs = step.targetCurrentOccupant !== undefined 
-              ? `Tem livros de A${padZero(step.targetCurrentOccupant)} (próximo passo)` 
-              : `Destino livre`;
-
             return [
               String(step.stepNum),
               step.fromCode,
               step.acervoCode,
               step.toCode,
-              destObs,
+              step.nextActionText,
               "[   ]"
             ];
           });
 
           doc.autoTable({
             startY: 37,
-            head: [['Passo', 'Retirar de (Física)', 'Acervo a Mover', 'Levar para (Destino)', 'Situação da Estante de Destino', 'Visto']],
+            head: [['Passo', 'Retirar de (Origem)', 'Acervo a Mover', 'Levar para (Destino)', 'Próxima Ação no Destino', 'Visto']],
             body: execTableRows,
             theme: 'striped',
             headStyles: {
@@ -2424,25 +2419,25 @@
             },
             bodyStyles: {
               fontSize: 8,
-              cellPadding: 2.5
+              cellPadding: 2.3
             },
             columnStyles: {
               0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
               1: { cellWidth: 34, fontStyle: 'bold', textColor: [190, 18, 60] },
               2: { cellWidth: 30, fontStyle: 'bold', textColor: [49, 46, 129] },
               3: { cellWidth: 34, fontStyle: 'bold', textColor: [4, 120, 87] },
-              4: { cellWidth: 60 },
+              4: { cellWidth: 62 },
               5: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }
             },
             didDrawPage: function () {
               doc.setFontSize(7.5);
               doc.setTextColor(150);
-              doc.text(`Página ${doc.internal.getNumberOfPages()} - Ordem de Execução (B ➔ B)`, 190, 290, { align: 'right' });
+              doc.text(`Página ${doc.internal.getNumberOfPages()} - Ordem do Trabalho (B ➔ B)`, 190, 290, { align: 'right' });
             }
           });
         }
 
-        // Se o modo for 'acervo' ou se for 'both', gera a tabela de Ordem do Acervo
+        // Se o modo for 'acervo' ou se for 'both', gera a tabela de Ordem do Acervo (A01 a A54)
         if (mode === 'acervo' || mode === 'both') {
           if (mode === 'both') {
             doc.addPage();
@@ -2498,14 +2493,14 @@
             },
             bodyStyles: {
               fontSize: 8,
-              cellPadding: 2.5
+              cellPadding: 2.3
             },
             columnStyles: {
               0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
               1: { cellWidth: 32, fontStyle: 'bold', textColor: [49, 46, 129] },
               2: { cellWidth: 36, fontStyle: 'bold', textColor: [190, 18, 60] },
               3: { cellWidth: 36, fontStyle: 'bold', textColor: [4, 120, 87] },
-              4: { cellWidth: 60 },
+              4: { cellWidth: 64 },
               5: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }
             },
             didDrawPage: function () {
@@ -2517,7 +2512,7 @@
         }
 
         const dateStr = new Date().toISOString().slice(0, 10);
-        const fileNameSuffix = mode === 'both' ? 'completo_duplo' : (mode === 'execution' ? 'ordem_execucao' : 'ordem_acervo');
+        const fileNameSuffix = mode === 'both' ? 'completo_duplo' : (mode === 'execution' ? 'ordem_trabalho' : 'ordem_acervo');
         doc.save(`roteiro_mudanca_${fileNameSuffix}_${dateStr}.pdf`);
         showToast("Roteiro em PDF gerado e baixado com sucesso!", "success");
       } catch (err) {
