@@ -549,6 +549,37 @@
   </main>
 
   <!-- MODAL DE CONFIRMAÇÃO GENÉRICA (Substitui confirm() do navegador) -->
+  <div id="customConfirmModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 id="modalConfirmTitle" class="font-bold text-slate-900 text-base leading-tight">Confirmar Ação</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Atenção à operação solicitada</p>
+        </div>
+      </div>
+      <p id="modalConfirmMessage" class="text-xs sm:text-sm text-slate-600 leading-relaxed"></p>
+      <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+        <button 
+          type="button" 
+          id="btnModalCancel" 
+          class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+        >
+          Cancelar
+        </button>
+        <button 
+          type="button" 
+          id="btnModalConfirm" 
+          class="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition"
+        >
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL DE OPÇÕES DE EXPORTAÇÃO DO ROTEIRO EM PDF -->
   <div id="pdfExportModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
     <div class="bg-white w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl border border-slate-100">
@@ -1559,6 +1590,350 @@
       if (modal) modal.classList.add('hidden');
     }
 
+    function goToReportScreen() {
+      const screenEntry = document.getElementById('screenEntry');
+      const screenReport = document.getElementById('screenReport');
+      if (screenEntry) screenEntry.classList.add('hidden');
+      if (screenReport) screenReport.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderAll();
+    }
+
+    function goToEntryScreen() {
+      const screenEntry = document.getElementById('screenEntry');
+      const screenReport = document.getElementById('screenReport');
+      if (screenReport) screenReport.classList.add('hidden');
+      if (screenEntry) screenEntry.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderAll();
+    }
+
+    function toggleProgressOverview() {
+      const screenReport = document.getElementById('screenReport');
+      if (screenReport && !screenReport.classList.contains('hidden')) {
+        goToEntryScreen();
+      } else {
+        goToReportScreen();
+      }
+    }
+
+    function switchReportTab(tab) {
+      currentReportTab = tab;
+      const tabBtnDirect = document.getElementById('tabBtnDirect');
+      const tabBtnGuide = document.getElementById('tabBtnGuide');
+      const reportTabDirect = document.getElementById('reportTabDirect');
+      const reportTabGuide = document.getElementById('reportTabGuide');
+
+      const activeBtnClass = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition font-bold';
+      const inactiveBtnClass = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+
+      if (tabBtnDirect) tabBtnDirect.className = tab === 'direct' ? activeBtnClass : inactiveBtnClass;
+      if (tabBtnGuide) tabBtnGuide.className = tab === 'guide' ? activeBtnClass : inactiveBtnClass;
+
+      if (reportTabDirect) reportTabDirect.classList.toggle('hidden', tab !== 'direct');
+      if (reportTabGuide) reportTabGuide.classList.toggle('hidden', tab !== 'guide');
+
+      safeCreateIcons();
+    }
+
+    function renderHeaderProgress() {
+      const count = Object.keys(shelvesState).length;
+      const counterEl = document.getElementById('headerCounter');
+      const barEl = document.getElementById('headerProgressBar');
+
+      if (counterEl) {
+        counterEl.textContent = `${count}/${TOTAL_SLOTS}`;
+      }
+      if (barEl) {
+        const percent = Math.round((count / TOTAL_SLOTS) * 100);
+        barEl.style.width = `${percent}%`;
+      }
+    }
+
+    function renderSlotGrid() {
+      const grid = document.getElementById('shelfSlotGrid');
+      if (!grid) return;
+
+      let html = '';
+      for (let i = 1; i <= TOTAL_SLOTS; i++) {
+        const hasB = shelvesState[i] !== undefined;
+        const bVal = shelvesState[i];
+        const isEditing = editingOldNumber === i;
+
+        if (hasB) {
+          const isSame = bVal === i;
+          const borderClass = isEditing ? 'ring-2 ring-brand-600 border-brand-600' : 'border-emerald-200';
+          const bgClass = isSame ? 'bg-indigo-50/80 hover:bg-indigo-100 text-indigo-900' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900';
+          const badgeText = `B${padZero(bVal)}`;
+
+          html += `
+            <button 
+              type="button" 
+              onclick="startEditing(${i})" 
+              title="Estante A${padZero(i)} mapeada para B${padZero(bVal)}. Clique para editar."
+              class="p-1.5 rounded-lg border ${borderClass} ${bgClass} transition flex flex-col items-center justify-center text-center group active:scale-95"
+            >
+              <span class="text-[11px] font-bold leading-tight">A${padZero(i)}</span>
+              <span class="text-[10px] font-extrabold text-emerald-700 leading-tight">➔ ${badgeText}</span>
+            </button>
+          `;
+        } else {
+          const isEditing = editingOldNumber === i;
+          const borderClass = isEditing ? 'ring-2 ring-brand-600 border-brand-600' : 'border-slate-200';
+
+          html += `
+            <button 
+              type="button" 
+              onclick="selectSlotToFill(${i})" 
+              title="Estante A${padZero(i)} pendente. Clique para preencher."
+              class="p-1.5 rounded-lg border ${borderClass} bg-slate-50 hover:bg-slate-100 text-slate-500 transition flex flex-col items-center justify-center text-center active:scale-95"
+            >
+              <span class="text-[11px] font-semibold leading-tight">A${padZero(i)}</span>
+              <span class="text-[9px] text-slate-400 leading-tight">---</span>
+            </button>
+          `;
+        }
+      }
+
+      grid.innerHTML = html;
+    }
+
+    function selectSlotToFill(slotNum) {
+      const inputOld = document.getElementById('inputOldNum');
+      const inputNew = document.getElementById('inputNewNum');
+      if (inputOld) {
+        inputOld.value = slotNum;
+      }
+      if (inputNew) {
+        inputNew.value = '';
+        inputNew.focus();
+      }
+    }
+
+    function renderRecentEntries() {
+      const container = document.getElementById('recentEntriesList');
+      const countBadge = document.getElementById('recentEntriesCount');
+      if (!container) return;
+
+      const entries = Object.entries(shelvesState).map(([a, b]) => ({
+        a: parseInt(a, 10),
+        b: parseInt(b, 10)
+      }));
+
+      if (countBadge) {
+        countBadge.textContent = `${entries.length} mapeada(s)`;
+      }
+
+      if (entries.length === 0) {
+        container.innerHTML = `
+          <div class="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-xl">
+            Nenhuma estante registrada ainda. Digite os números acima.
+          </div>
+        `;
+        return;
+      }
+
+      const recent = entries.slice(-6).reverse();
+
+      let html = '';
+      recent.forEach(item => {
+        const isSame = item.a === item.b;
+        const statusNote = isSame 
+          ? '<span class="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded font-semibold border border-indigo-200">Mesma posição</span>'
+          : `<span class="text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-semibold border border-rose-200">Mover livros para B${padZero(item.a)}</span>`;
+
+        html += `
+          <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition">
+            <div class="flex items-center gap-2">
+              <div class="flex items-center font-bold text-xs sm:text-sm text-slate-800">
+                <span class="text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-md font-extrabold">A${padZero(item.a)}</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5 mx-1.5 text-slate-400"></i>
+                <span class="text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md font-extrabold">B${padZero(item.b)}</span>
+              </div>
+              <div class="hidden sm:inline-block">${statusNote}</div>
+            </div>
+            <div class="flex items-center gap-1">
+              <button 
+                type="button" 
+                onclick="startEditing(${item.a})" 
+                title="Editar estante A${padZero(item.a)}"
+                class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-white rounded-lg transition"
+              >
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+              </button>
+              <button 
+                type="button" 
+                onclick="deleteEntry(${item.a})" 
+                title="Excluir estante A${padZero(item.a)}"
+                class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition"
+              >
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderMetrics() {
+      const mappedCount = Object.keys(shelvesState).length;
+      const pendingCount = TOTAL_SLOTS - mappedCount;
+      let unchangedCount = 0;
+      let needMoveCount = 0;
+
+      for (const [aStr, bNum] of Object.entries(shelvesState)) {
+        const a = parseInt(aStr, 10);
+        if (a === bNum) {
+          unchangedCount++;
+        } else {
+          needMoveCount++;
+        }
+      }
+
+      const elMapped = document.getElementById('statMapped');
+      const elMappedPercent = document.getElementById('statMappedPercent');
+      const elPending = document.getElementById('statPending');
+      const elUnchanged = document.getElementById('statUnchanged');
+      const elNeedMove = document.getElementById('statNeedMove');
+
+      if (elMapped) elMapped.textContent = mappedCount;
+      if (elMappedPercent) elMappedPercent.textContent = `${Math.round((mappedCount / TOTAL_SLOTS) * 100)}%`;
+      if (elPending) elPending.textContent = pendingCount;
+      if (elUnchanged) elUnchanged.textContent = unchangedCount;
+      if (elNeedMove) elNeedMove.textContent = needMoveCount;
+    }
+
+    function renderReportTable() {
+      const tbody = document.getElementById('reportTableBody');
+      const countEl = document.getElementById('tableFilterCount');
+      if (!tbody) return;
+
+      const rows = [];
+      const search = (currentSearchTerm || '').toLowerCase().trim();
+
+      for (let i = 1; i <= TOTAL_SLOTS; i++) {
+        const hasB = shelvesState[i] !== undefined;
+        const bVal = shelvesState[i];
+        const isSame = hasB && bVal === i;
+        const needsMove = hasB && bVal !== i;
+
+        if (currentReportFilter === 'mapped' && !hasB) continue;
+        if (currentReportFilter === 'pending' && hasB) continue;
+        if (currentReportFilter === 'needs_relocation' && !needsMove) continue;
+
+        if (search) {
+          const aCode = `a${padZero(i)}`.toLowerCase();
+          const aShort = `a${i}`.toLowerCase();
+          const bCode = hasB ? `b${padZero(bVal)}`.toLowerCase() : '';
+          const bShort = hasB ? `b${bVal}`.toLowerCase() : '';
+          const numStr = String(i);
+          const bNumStr = hasB ? String(bVal) : '';
+
+          const match = aCode.includes(search) ||
+            aShort.includes(search) ||
+            bCode.includes(search) ||
+            bShort.includes(search) ||
+            numStr === search ||
+            bNumStr === search;
+
+          if (!match) continue;
+        }
+
+        rows.push({
+          a: i,
+          b: bVal,
+          hasB,
+          isSame,
+          needsMove
+        });
+      }
+
+      if (countEl) {
+        countEl.textContent = `${rows.length} estante(s)`;
+      }
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-xs text-slate-400">
+              Nenhuma estante encontrada com os filtros e busca atuais.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let html = '';
+      rows.forEach(row => {
+        let bDisplay = '<span class="text-slate-400 italic">Pendente</span>';
+        let actionDisplay = '<span class="text-slate-400">Pendente de mapeamento</span>';
+
+        if (row.hasB) {
+          bDisplay = `<span class="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">B${padZero(row.b)}</span>`;
+          if (row.isSame) {
+            actionDisplay = '<span class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">Permanece igual (livros no lugar)</span>';
+          } else {
+            actionDisplay = `<span class="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">Transportar acervo de B${padZero(row.b)} para B${padZero(row.a)}</span>`;
+          }
+        }
+
+        html += `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="py-3 px-4">
+              <span class="font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">A${padZero(row.a)}</span>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <i data-lucide="arrow-right" class="w-4 h-4 text-slate-400 inline"></i>
+            </td>
+            <td class="py-3 px-4">
+              ${bDisplay}
+            </td>
+            <td class="py-3 px-4 hidden md:table-cell text-xs">
+              ${actionDisplay}
+            </td>
+            <td class="py-3 px-4 text-right no-print">
+              <div class="flex items-center justify-end gap-1">
+                <button 
+                  type="button" 
+                  onclick="startEditing(${row.a})" 
+                  title="Editar A${padZero(row.a)}"
+                  class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition"
+                >
+                  <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                </button>
+                ${row.hasB ? `
+                  <button 
+                    type="button" 
+                    onclick="deleteEntry(${row.a})" 
+                    title="Excluir A${padZero(row.a)}"
+                    class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition"
+                  >
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function handleReportSearch(val) {
+      currentSearchTerm = val;
+      renderReportTable();
+      safeCreateIcons();
+    }
+
+    function handleFilterChange(val) {
+      currentReportFilter = val;
+      renderReportTable();
+      safeCreateIcons();
+    }
+
     function renderAll() {
       renderHeaderProgress();
       renderSlotGrid();
@@ -1876,6 +2251,98 @@
       } catch (err) {
         console.error("Erro ao gerar Excel:", err);
         showToast("Falha ao exportar planilha. Tente novamente.", "error");
+      }
+    }
+
+    function exportToPdf() {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("Biblioteca de PDF indisponível.", "error");
+        return;
+      }
+
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const dateNow = new Date().toLocaleDateString('pt-BR');
+        const mappedCount = Object.keys(shelvesState).length;
+
+        doc.setFillColor(30, 27, 75);
+        doc.rect(0, 0, 210, 26, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text("BIBLIOTECA - RELAÇÃO DE POSIÇÕES DAS ESTANTES", 14, 11);
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Mapeamento Físico (A ➔ B) | Emissão: ${dateNow}`, 14, 17);
+        doc.text(`Estantes Mapeadas: ${mappedCount} de ${TOTAL_SLOTS}`, 14, 22);
+
+        const rows = [];
+        for (let i = 1; i <= TOTAL_SLOTS; i++) {
+          const hasB = shelvesState[i] !== undefined;
+          const bCode = hasB ? `B${padZero(shelvesState[i])}` : 'Pendente';
+          let status = 'Pendente';
+          let action = 'Cadastrar posição da estante';
+
+          if (hasB) {
+            if (shelvesState[i] === i) {
+              status = 'Mesma Posição';
+              action = 'Acervo no local definitivo';
+            } else {
+              status = 'Remanejada';
+              action = `Transportar livros para B${padZero(i)}`;
+            }
+          }
+
+          rows.push([
+            `A${padZero(i)}`,
+            bCode,
+            status,
+            action
+          ]);
+        }
+
+        doc.autoTable({
+          startY: 32,
+          head: [['Posição Antiga', 'Posição Nova', 'Status', 'Ação Necessária']],
+          body: rows,
+          theme: 'striped',
+          headStyles: {
+            fillColor: [79, 70, 229],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 8.5
+          },
+          bodyStyles: {
+            fontSize: 8,
+            cellPadding: 2.2
+          },
+          columnStyles: {
+            0: { cellWidth: 35, fontStyle: 'bold', textColor: [49, 46, 129] },
+            1: { cellWidth: 35, fontStyle: 'bold', textColor: [4, 120, 87] },
+            2: { cellWidth: 35 },
+            3: { cellWidth: 80 }
+          },
+          didDrawPage: function () {
+            doc.setFontSize(7.5);
+            doc.setTextColor(150);
+            doc.text(`Página ${doc.internal.getNumberOfPages()} - Mapeamento de Estantes (A ➔ B)`, 190, 290, { align: 'right' });
+          }
+        });
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        doc.save(`posicoes_estantes_A_B_${dateStr}.pdf`);
+        showToast("PDF de posições gerado e baixado com sucesso!", "success");
+      } catch (err) {
+        console.error("Erro ao gerar PDF de posições:", err);
+        showToast("Não foi possível gerar o PDF de posições.", "error");
       }
     }
 
