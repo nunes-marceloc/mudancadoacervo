@@ -341,7 +341,7 @@
 
           <button 
             type="button" 
-            onclick="exportGuideToPdf()" 
+            onclick="openPdfExportModal()" 
             title="Exportar Roteiro Prático de Mudança dos Livros em PDF"
             class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 touch-manipulation"
           >
@@ -488,12 +488,44 @@
           </div>
           <button 
             type="button" 
-            onclick="exportGuideToPdf()" 
+            onclick="openPdfExportModal()" 
             class="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-950 hover:bg-indigo-50 text-xs font-bold rounded-xl shadow-sm transition active:scale-95 touch-manipulation shrink-0"
           >
             <i data-lucide="file-text" class="w-4 h-4 text-rose-600"></i>
             <span>Baixar Roteiro em PDF</span>
           </button>
+        </div>
+
+        <!-- Seletor de Modo de Visualização do Roteiro -->
+        <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="list-ordered" class="w-4 h-4 text-brand-600"></i>
+            <span class="text-xs font-bold text-slate-800">Organização do Roteiro:</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+            <button 
+              id="guideModeBtnExecution" 
+              onclick="setGuideViewMode('execution')" 
+              class="py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition"
+            >
+              <i data-lucide="git-commit" class="w-3.5 h-3.5 text-brand-600"></i>
+              <span>1. Ordem de Execução (B ➔ B)</span>
+            </button>
+            <button 
+              id="guideModeBtnAcervo" 
+              onclick="setGuideViewMode('acervo')" 
+              class="py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition"
+            >
+              <i data-lucide="arrow-down-1-9" class="w-3.5 h-3.5 text-slate-500"></i>
+              <span>2. Ordem do Acervo (A01-A54)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Explicação do Modo Selecionado -->
+        <div id="guideModeDescriptionBox" class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs text-indigo-900 flex items-start gap-2">
+          <!-- Atualizado dinamicamente via renderRelocationGuide() -->
         </div>
 
         <div id="relocationCardsContainer" class="space-y-3">
@@ -517,28 +549,87 @@
   </main>
 
   <!-- MODAL DE CONFIRMAÇÃO GENÉRICA (Substitui confirm() do navegador) -->
-  <div id="customConfirmModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
-    <div class="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-slate-100 transform transition-all">
-      <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3">
-        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
-      </div>
-      <h3 id="modalConfirmTitle" class="font-bold text-slate-900 text-base">Confirmação</h3>
-      <p id="modalConfirmMessage" class="text-sm text-slate-600 mt-1.5 leading-relaxed">Tem certeza de que deseja realizar esta ação?</p>
-      
-      <div class="flex items-center justify-end gap-2 mt-5">
-        <button 
-          type="button" 
-          id="btnModalCancel" 
-          class="px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition"
-        >
-          Cancelar
+  <!-- MODAL DE OPÇÕES DE EXPORTAÇÃO DO ROTEIRO EM PDF -->
+  <div id="pdfExportModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl p-5 sm:p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="file-down" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Exportar Roteiro em PDF</h3>
+            <p class="text-xs text-slate-500">Escolha o formato ideal para o trabalho da equipe</p>
+          </div>
+        </div>
+        <button onclick="closePdfExportModal()" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
+      </div>
+
+      <div class="space-y-3 mt-4">
+        <!-- Opção 1: Ordem de Execução -->
         <button 
           type="button" 
-          id="btnModalConfirm" 
-          class="px-4 py-2 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm transition"
+          onclick="exportGuideToPdf('execution')" 
+          class="w-full text-left p-3.5 rounded-xl border-2 border-indigo-100 hover:border-brand-500 hover:bg-indigo-50/40 transition group flex items-start gap-3"
         >
-          Confirmar
+          <div class="p-2 bg-indigo-100 text-indigo-700 rounded-lg group-hover:bg-brand-600 group-hover:text-white transition shrink-0 mt-0.5">
+            <i data-lucide="git-commit" class="w-4 h-4"></i>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-slate-900 text-xs sm:text-sm">Ordem de Execução (B ➔ B)</h4>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Recomendado</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+              Sequência operacional de trabalho: a estante de destino de uma linha torna-se a estante de origem da linha seguinte.
+            </p>
+          </div>
+        </button>
+
+        <!-- Opção 2: Ordem Numérica do Acervo -->
+        <button 
+          type="button" 
+          onclick="exportGuideToPdf('acervo')" 
+          class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-slate-50 transition group flex items-start gap-3"
+        >
+          <div class="p-2 bg-slate-100 text-slate-600 rounded-lg group-hover:bg-brand-600 group-hover:text-white transition shrink-0 mt-0.5">
+            <i data-lucide="arrow-down-1-9" class="w-4 h-4"></i>
+          </div>
+          <div class="flex-1">
+            <h4 class="font-bold text-slate-900 text-xs sm:text-sm">Ordem Numérica do Acervo (A01 a A54)</h4>
+            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+              Ordenado pela numeração original dos livros (A01, A02, A03...), facilitando conferências pontuais de acervo.
+            </p>
+          </div>
+        </button>
+
+        <!-- Opção 3: Documento Completo com Ambos -->
+        <button 
+          type="button" 
+          onclick="exportGuideToPdf('both')" 
+          class="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-slate-50 transition group flex items-start gap-3"
+        >
+          <div class="p-2 bg-slate-100 text-slate-600 rounded-lg group-hover:bg-brand-600 group-hover:text-white transition shrink-0 mt-0.5">
+            <i data-lucide="files" class="w-4 h-4"></i>
+          </div>
+          <div class="flex-1">
+            <h4 class="font-bold text-slate-900 text-xs sm:text-sm">Documento Completo (Ambas as Visões)</h4>
+            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+              Gera um único PDF com a ordem de execução contínua seguida pela relação numérica completa.
+            </p>
+          </div>
+        </button>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+        <button 
+          type="button" 
+          onclick="closePdfExportModal()" 
+          class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+        >
+          Fechar
         </button>
       </div>
     </div>
@@ -721,6 +812,7 @@
     let currentReportFilter = 'all';
     let currentSearchTerm = '';
     let currentReportTab = 'direct';
+    let currentGuideViewMode = 'execution'; // 'execution' (ordem de trabalho B->B) ou 'acervo' (ordem numérica A)
 
     /* QR Code and Scanner instances */
     let qrcodeInstance = null;
@@ -1320,6 +1412,153 @@
       );
     }
 
+    /**
+     * Calcula as cadeias contínuas de transporte dos livros (Ordem de Execução).
+     * Exemplo: B01 (com Acervo A02) -> leva para B02. Em seguida, em B02 (com A32) -> leva para B32.
+     */
+    function computeRelocationData() {
+      // Mapeamento inverso: qual acervo A está atualmente na estante física B
+      const physicalOccupant = {};
+      for (const [aStr, bNum] of Object.entries(shelvesState)) {
+        const a = parseInt(aStr, 10);
+        const b = parseInt(bNum, 10);
+        if (!isNaN(a) && !isNaN(b)) {
+          physicalOccupant[b] = a;
+        }
+      }
+
+      // Estantes físicas que possuem livros fora do seu destino definitivo
+      const pendingSlots = new Set();
+      for (const [bStr, a] of Object.entries(physicalOccupant)) {
+        const b = parseInt(bStr, 10);
+        if (a !== b) {
+          pendingSlots.add(b);
+        }
+      }
+
+      const chains = [];
+      let globalStepCounter = 1;
+
+      while (pendingSlots.size > 0) {
+        // Se a estante B01 estiver pendente, inicia por ela (como no exemplo do usuário).
+        // Caso contrário, seleciona a estante pendente de menor número.
+        let startB;
+        if (pendingSlots.has(1)) {
+          startB = 1;
+        } else {
+          const sorted = Array.from(pendingSlots).sort((x, y) => x - y);
+          startB = sorted[0];
+        }
+
+        const currentChain = {
+          chainId: chains.length + 1,
+          startB: startB,
+          steps: []
+        };
+
+        let currB = startB;
+
+        while (pendingSlots.has(currB)) {
+          const acervoA = physicalOccupant[currB];
+          const targetB = acervoA; // O acervo A deve ir para a estante física B correspondente
+
+          pendingSlots.delete(currB);
+
+          const stepData = {
+            stepNum: globalStepCounter++,
+            chainStepNum: currentChain.steps.length + 1,
+            fromB: currB,
+            fromCode: `B${padZero(currB)}`,
+            acervoA: acervoA,
+            acervoCode: `A${padZero(acervoA)}`,
+            toB: targetB,
+            toCode: `B${padZero(targetB)}`,
+            targetCurrentOccupant: physicalOccupant[targetB]
+          };
+
+          currentChain.steps.push(stepData);
+
+          // Avança para a estante de destino na próxima etapa da cadeia contínua
+          currB = targetB;
+        }
+
+        if (currentChain.steps.length > 0) {
+          chains.push(currentChain);
+        }
+      }
+
+      // Lista linear ordenada por execução
+      const executionSteps = [];
+      chains.forEach(chain => {
+        chain.steps.forEach(step => {
+          executionSteps.push({
+            ...step,
+            chainId: chain.chainId
+          });
+        });
+      });
+
+      // Lista clássica ordenada pelo número do Acervo A (A01 a A54)
+      const acervoSteps = [];
+      const mappedEntries = Object.entries(shelvesState).map(([a, b]) => ({
+        oldNum: parseInt(a, 10),
+        newNum: b
+      }));
+      const needReloc = mappedEntries.filter(item => item.oldNum !== item.newNum);
+      needReloc.sort((x, y) => x.oldNum - y.oldNum);
+
+      needReloc.forEach((item, idx) => {
+        acervoSteps.push({
+          stepNum: idx + 1,
+          acervoA: item.oldNum,
+          acervoCode: `A${padZero(item.oldNum)}`,
+          fromB: item.newNum,
+          fromCode: `B${padZero(item.newNum)}`,
+          toB: item.oldNum,
+          toCode: `B${padZero(item.oldNum)}`,
+          targetCurrentOccupant: physicalOccupant[item.oldNum]
+        });
+      });
+
+      return {
+        chains,
+        executionSteps,
+        acervoSteps,
+        physicalOccupant,
+        totalNeedRelocation: executionSteps.length
+      };
+    }
+
+    function setGuideViewMode(mode) {
+      currentGuideViewMode = mode;
+      const btnExec = document.getElementById('guideModeBtnExecution');
+      const btnAcervo = document.getElementById('guideModeBtnAcervo');
+
+      if (btnExec && btnAcervo) {
+        if (mode === 'execution') {
+          btnExec.className = 'py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition font-bold';
+          btnAcervo.className = 'py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+        } else {
+          btnExec.className = 'py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+          btnAcervo.className = 'py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition font-bold';
+        }
+      }
+
+      renderRelocationGuide();
+      safeCreateIcons();
+    }
+
+    function openPdfExportModal() {
+      const modal = document.getElementById('pdfExportModal');
+      if (modal) modal.classList.remove('hidden');
+      safeCreateIcons();
+    }
+
+    function closePdfExportModal() {
+      const modal = document.getElementById('pdfExportModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
     function renderAll() {
       renderHeaderProgress();
       renderSlotGrid();
@@ -1330,247 +1569,16 @@
       safeCreateIcons();
     }
 
-    function renderHeaderProgress() {
-      const elCount = document.getElementById('headerCounter');
-      const elBar = document.getElementById('headerProgressBar');
-      const mappedCount = Object.keys(shelvesState).length;
-      const pct = Math.round((mappedCount / TOTAL_SLOTS) * 100);
-      
-      if (elCount) elCount.textContent = `${mappedCount}/${TOTAL_SLOTS}`;
-      if (elBar) elBar.style.width = `${pct}%`;
-    }
-
-    function renderSlotGrid() {
-      const grid = document.getElementById('shelfSlotGrid');
-      if (!grid) {
-        return;
-      }
-      grid.innerHTML = '';
-
-      for (let i = 1; i <= TOTAL_SLOTS; i++) {
-        const isMapped = shelvesState[i] !== undefined;
-        const bTarget = isMapped ? `B${padZero(shelvesState[i])}` : '--';
-        
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.onclick = () => startEditing(i);
-        btn.className = `p-1.5 rounded-lg text-center transition flex flex-col items-center justify-center border text-[11px] font-bold ${
-          isMapped 
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100' 
-            : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-100'
-        }`;
-
-        btn.title = isMapped ? `A${padZero(i)} está em ${bTarget} (Clique para editar)` : `A${padZero(i)} ainda pendente`;
-
-        btn.innerHTML = `
-          <span>A${padZero(i)}</span>
-          <span class="text-[9px] font-semibold ${isMapped ? 'text-emerald-700' : 'text-slate-300'}">${bTarget}</span>
-        `;
-        grid.appendChild(btn);
-      }
-    }
-
-    function renderRecentEntries() {
-      const container = document.getElementById('recentEntriesList');
-      const countEl = document.getElementById('recentEntriesCount');
-      if (!container) return;
-
-      const entries = Object.entries(shelvesState).map(([a, b]) => ({ a: parseInt(a, 10), b }));
-      
-      if (countEl) countEl.textContent = `${entries.length} mapeada(s)`;
-
-      if (entries.length === 0) {
-        container.innerHTML = `
-          <div class="text-center py-6 text-slate-400 text-xs">
-            <i data-lucide="clipboard-x" class="w-8 h-8 mx-auto stroke-1 mb-1.5 text-slate-300"></i>
-            Nenhuma posição foi gravada ainda.<br>Preencha os campos acima para começar.
-          </div>
-        `;
-        return;
-      }
-
-      entries.sort((x, y) => y.a - x.a);
-      const recent = entries.slice(0, 5);
-
-      container.innerHTML = recent.map(item => `
-        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-          <div class="flex items-center gap-3">
-            <span class="font-bold text-slate-900 bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md">
-              A${padZero(item.a)}
-            </span>
-            <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
-            <span class="font-bold text-slate-900 bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md">
-              B${padZero(item.b)}
-            </span>
-            ${item.a === item.b ? '<span class="text-[10px] text-slate-400 italic">(Sem alteração)</span>' : ''}
-          </div>
-          <div class="flex items-center gap-1">
-            <button 
-              type="button" 
-              onclick="startEditing(${item.a})" 
-              class="p-1.5 text-slate-600 hover:text-brand-600 hover:bg-slate-200/80 rounded-lg transition"
-              title="Editar"
-            >
-              <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-            </button>
-            <button 
-              type="button" 
-              onclick="deleteEntry(${item.a})" 
-              class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-              title="Excluir"
-            >
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function renderMetrics() {
-      const elMapped = document.getElementById('statMapped');
-      const elPct = document.getElementById('statMappedPercent');
-      const elPending = document.getElementById('statPending');
-      const elUnchanged = document.getElementById('statUnchanged');
-      const elNeedMove = document.getElementById('statNeedMove');
-
-      if (!elMapped) return;
-
-      const mappedKeys = Object.keys(shelvesState).map(k => parseInt(k, 10));
-      const mappedCount = mappedKeys.length;
-      const pendingCount = TOTAL_SLOTS - mappedCount;
-
-      let unchangedCount = 0;
-      let needMoveCount = 0;
-
-      for (const a of mappedKeys) {
-        if (shelvesState[a] === a) {
-          unchangedCount++;
-        } else {
-          needMoveCount++;
-        }
-      }
-
-      elMapped.textContent = mappedCount;
-      if (elPct) elPct.textContent = `${Math.round((mappedCount / TOTAL_SLOTS) * 100)}% concluído`;
-      if (elPending) elPending.textContent = pendingCount;
-      if (elUnchanged) elUnchanged.textContent = unchangedCount;
-      if (elNeedMove) elNeedMove.textContent = needMoveCount;
-    }
-
-    function renderReportTable() {
-      const tbody = document.getElementById('reportTableBody');
-      const filterCountEl = document.getElementById('tableFilterCount');
-      if (!tbody) return;
-      
-      let rows = [];
-
-      for (let i = 1; i <= TOTAL_SLOTS; i++) {
-        const hasMapping = shelvesState[i] !== undefined;
-        const bVal = hasMapping ? shelvesState[i] : null;
-
-        if (currentSearchTerm) {
-          const term = currentSearchTerm.toLowerCase().replace(/[ab]/g, '').trim();
-          const matchA = i.toString().includes(term) || padZero(i).includes(term);
-          const matchB = bVal && (bVal.toString().includes(term) || padZero(bVal).includes(term));
-          if (!matchA && !matchB) continue;
-        }
-
-        if (currentReportFilter === 'mapped' && !hasMapping) continue;
-        if (currentReportFilter === 'pending' && hasMapping) continue;
-        if (currentReportFilter === 'needs_relocation' && (!hasMapping || bVal === i)) continue;
-
-        rows.push({
-          oldNum: i,
-          oldCode: `A${padZero(i)}`,
-          newNum: bVal,
-          newCode: bVal ? `B${padZero(bVal)}` : 'Pendente',
-          isMapped: hasMapping,
-          isEqual: hasMapping && bVal === i
-        });
-      }
-
-      if (filterCountEl) filterCountEl.textContent = `${rows.length} estante(s) listada(s)`;
-
-      if (rows.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="py-8 text-center text-slate-400 text-sm">
-              <i data-lucide="search-x" class="w-8 h-8 mx-auto stroke-1 mb-1 text-slate-300"></i>
-              Nenhuma estante corresponde aos filtros selecionados.
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = rows.map(r => {
-        let actionBadge = '';
-        if (!r.isMapped) {
-          actionBadge = '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">Aguardando mapeamento</span>';
-        } else if (r.isEqual) {
-          actionBadge = '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">Não precisa mover acervo</span>';
-        } else {
-          actionBadge = `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/70">Mover livros de B${padZero(r.newNum)} ➔ B${padZero(r.oldNum)}</span>`;
-        }
-
-        return `
-          <tr class="hover:bg-slate-50/80 transition text-slate-700">
-            <td class="py-3.5 px-4 font-bold text-slate-900">
-              <span class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-900 border border-indigo-200/60 px-2 py-1 rounded-md text-xs font-extrabold">
-                ${r.oldCode}
-              </span>
-            </td>
-            <td class="py-3.5 px-4 text-center text-slate-400">
-              <i data-lucide="arrow-right" class="w-4 h-4 mx-auto"></i>
-            </td>
-            <td class="py-3.5 px-4 font-bold">
-              ${r.isMapped 
-                ? `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-900 border border-emerald-200/60 px-2 py-1 rounded-md text-xs font-extrabold">${r.newCode}</span>` 
-                : `<span class="text-xs italic text-slate-400">Não informada</span>`
-              }
-            </td>
-            <td class="py-3.5 px-4 hidden md:table-cell text-xs">
-              ${actionBadge}
-            </td>
-            <td class="py-3.5 px-4 text-right no-print">
-              <div class="flex items-center justify-end gap-1">
-                <button 
-                  type="button" 
-                  onclick="startEditing(${r.oldNum})" 
-                  class="p-1.5 text-slate-600 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition"
-                  title="Editar"
-                >
-                  <i data-lucide="pencil" class="w-4 h-4"></i>
-                </button>
-                ${r.isMapped ? `
-                  <button 
-                    type="button" 
-                    onclick="deleteEntry(${r.oldNum})" 
-                    class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                    title="Excluir"
-                  >
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                  </button>
-                ` : ''}
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
     function renderRelocationGuide() {
       const container = document.getElementById('relocationCardsContainer');
+      const descBox = document.getElementById('guideModeDescriptionBox');
       if (!container) return;
 
-      const mappedEntries = Object.entries(shelvesState).map(([a, b]) => ({
-        oldNum: parseInt(a, 10),
-        newNum: b
-      }));
+      const relocData = computeRelocationData();
+      const mappedCount = Object.keys(shelvesState).length;
 
-      const needRelocation = mappedEntries.filter(item => item.oldNum !== item.newNum);
-
-      if (mappedEntries.length === 0) {
+      if (mappedCount === 0) {
+        if (descBox) descBox.classList.add('hidden');
         container.innerHTML = `
           <div class="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-sm">
             Nenhum dado cadastrado ainda para gerar o roteiro.
@@ -1579,32 +1587,151 @@
         return;
       }
 
-      if (needRelocation.length === 0) {
+      if (relocData.totalNeedRelocation === 0) {
+        if (descBox) descBox.classList.add('hidden');
         container.innerHTML = `
           <div class="bg-emerald-50 border border-emerald-200 text-emerald-900 p-6 rounded-2xl text-center">
             <i data-lucide="check-circle" class="w-8 h-8 mx-auto text-emerald-600 mb-2"></i>
-            <h4 class="font-bold">Todas as estantes mapeadas permaneceram no mesmo número relativo!</h4>
-            <p class="text-xs text-emerald-700 mt-1">Nenhum livro precisará ser trocado entre as estantes mapeadas até agora.</p>
+            <h4 class="font-bold">Todas as estantes mapeadas permaneceram na mesma posição relativa!</h4>
+            <p class="text-xs text-emerald-700 mt-1">Nenhum livro precisará ser trocado entre as estantes cadastradas até agora.</p>
           </div>
         `;
         return;
       }
 
-      needRelocation.sort((x, y) => x.oldNum - y.oldNum);
-
-      const physicalSlotOccupant = {};
-      for (const [a, b] of Object.entries(shelvesState)) {
-        physicalSlotOccupant[b] = parseInt(a, 10);
+      // Atualiza caixa informativa do modo ativo
+      if (descBox) {
+        descBox.classList.remove('hidden');
+        if (currentGuideViewMode === 'execution') {
+          descBox.innerHTML = `
+            <i data-lucide="sparkles" class="w-4 h-4 text-brand-600 shrink-0 mt-0.5"></i>
+            <div>
+              <strong class="font-bold text-slate-900">Modo Sequencial de Execução (Cadeia B ➔ B):</strong>
+              <p class="mt-0.5 text-slate-600">
+                Siga os passos numerados na ordem indicada (#1, #2, #3...). Ao entregar os livros na estante de destino, você já retira imediatamente os livros que estão nela para alimentar o passo seguinte sem idas e vindas desnecessárias no acervo.
+              </p>
+            </div>
+          `;
+        } else {
+          descBox.innerHTML = `
+            <i data-lucide="info" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+            <div>
+              <strong class="font-bold text-slate-900">Modo por Sequência do Acervo (A01 a A54):</strong>
+              <p class="mt-0.5 text-slate-600">
+                Visualização clássica alinhada à ordem original dos livros na biblioteca (A01, A02, A03...). Útil para checagens globais de acervo e verificação do estado final de cada seção.
+              </p>
+            </div>
+          `;
+        }
       }
 
-      container.innerHTML = needRelocation.map((item, idx) => {
-        const acervoSection = `A${padZero(item.oldNum)}`;
-        const currentPhysicalLocation = `B${padZero(item.newNum)}`;
-        const targetPhysicalLocation = `B${padZero(item.oldNum)}`;
+      // RENDERIZAÇÃO: MODO 1 - ORDEM DE EXECUÇÃO (B -> B)
+      if (currentGuideViewMode === 'execution') {
+        let html = '';
 
-        const currentOccupantAtTarget = physicalSlotOccupant[item.oldNum];
-        const occupantDesc = currentOccupantAtTarget !== undefined 
-          ? `(que hoje possui os livros da antiga A${padZero(currentOccupantAtTarget)})`
+        relocData.chains.forEach(chain => {
+          const isMultiChain = relocData.chains.length > 1;
+
+          if (isMultiChain) {
+            html += `
+              <div class="bg-indigo-900 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-between mt-4 mb-2 shadow-xs">
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-300"></i>
+                  Cadeia de Transporte #${chain.chainId} (${chain.steps.length} movimentos contínuos)
+                </span>
+                <span class="text-[11px] text-indigo-200 font-normal">Inicia na Estante B${padZero(chain.startB)}</span>
+              </div>
+            `;
+          }
+
+          chain.steps.forEach((step, idx) => {
+            const hasNextInChain = idx < chain.steps.length - 1;
+            const nextStep = hasNextInChain ? chain.steps[idx + 1] : null;
+
+            const occupantDesc = step.targetCurrentOccupant !== undefined 
+              ? `contém provisoriamente o Acervo A${padZero(step.targetCurrentOccupant)} (que será movido ${hasNextInChain ? 'no passo seguinte' : 'ao longo da mudança'})` 
+              : `está vazia ou aguardando acervo`;
+
+            html += `
+              <div class="bg-white rounded-2xl border-2 ${idx === 0 ? 'border-brand-200 shadow-sm' : 'border-slate-200'} p-4 sm:p-5 transition hover:shadow-md relative overflow-hidden">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-full bg-brand-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                      #${step.stepNum}
+                    </span>
+                    <div>
+                      <h4 class="font-extrabold text-slate-900 text-sm sm:text-base">
+                        Passo ${step.stepNum}: Estante ${step.fromCode} ➔ ${step.toCode}
+                      </h4>
+                      <p class="text-[11px] text-slate-500">Transporte da seção ${step.acervoCode}</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-bold px-2.5 py-1 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg">
+                    Ordem de Trabalho
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm items-center">
+                  <!-- Origem (Onde retirar) -->
+                  <div class="bg-rose-50/60 p-3 rounded-xl border border-rose-200">
+                    <span class="text-[10px] uppercase font-bold text-rose-700 block">1. Retirar livros de hoje</span>
+                    <div class="font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
+                      <i data-lucide="map-pin" class="w-4 h-4 text-rose-600"></i>
+                      <span>Estante <strong class="text-rose-700 font-extrabold text-base">${step.fromCode}</strong></span>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-600 block mt-0.5">Acervo ${step.acervoCode}</span>
+                  </div>
+
+                  <!-- Ação / Transporte -->
+                  <div class="flex flex-col items-center justify-center py-1 sm:py-0">
+                    <div class="flex items-center gap-1.5 text-brand-700 font-extrabold bg-brand-50 px-3 py-1.5 rounded-full text-xs border border-brand-200/60">
+                      <span>Levar ${step.acervoCode}</span>
+                      <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </div>
+                  </div>
+
+                  <!-- Destino Definitivo -->
+                  <div class="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200">
+                    <span class="text-[10px] uppercase font-bold text-emerald-700 block">2. Entregar e acomodar em</span>
+                    <div class="font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
+                      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+                      <span>Estante <strong class="text-emerald-700 font-extrabold text-base">${step.toCode}</strong></span>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-600 block mt-0.5">Posição Definitiva</span>
+                  </div>
+                </div>
+
+                <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                  <p class="text-slate-600 flex items-start gap-1.5">
+                    <i data-lucide="info" class="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5"></i>
+                    <span>Ao chegar na <strong>${step.toCode}</strong>, note que ela ${occupantDesc}.</span>
+                  </p>
+
+                  ${hasNextInChain ? `
+                    <div class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-bold shrink-0">
+                      <i data-lucide="corner-down-right" class="w-3 h-3 text-amber-600"></i>
+                      <span>Próximo passo: retirar livros de ${nextStep.fromCode}</span>
+                    </div>
+                  ` : `
+                    <div class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-bold shrink-0">
+                      <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>
+                      <span>Fechamento do ciclo desta estante</span>
+                    </div>
+                  `}
+                </div>
+              </div>
+            `;
+          });
+        });
+
+        container.innerHTML = html;
+        return;
+      }
+
+      // RENDERIZAÇÃO: MODO 2 - ORDEM DO ACERVO (A01 A A54)
+      container.innerHTML = relocData.acervoSteps.map((step) => {
+        const occupantDesc = step.targetCurrentOccupant !== undefined 
+          ? `(que hoje possui os livros da antiga A${padZero(step.targetCurrentOccupant)})`
           : `(ainda não mapeada ou vazia)`;
 
         return `
@@ -1612,14 +1739,14 @@
             <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
               <div class="flex items-center gap-2">
                 <span class="w-6 h-6 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
-                  ${idx + 1}
+                  ${step.stepNum}
                 </span>
                 <span class="font-bold text-slate-900 text-sm sm:text-base">
-                  Acervo Seção ${acervoSection}
+                  Acervo Seção ${step.acervoCode}
                 </span>
               </div>
-              <span class="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg">
-                Remanejamento Necessário
+              <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg">
+                Ordem do Acervo
               </span>
             </div>
 
@@ -1628,7 +1755,7 @@
                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Onde os livros estão hoje</span>
                 <div class="font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
                   <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i>
-                  <span>Estante física <strong class="text-indigo-600">${currentPhysicalLocation}</strong></span>
+                  <span>Estante física <strong class="text-indigo-600">${step.fromCode}</strong></span>
                 </div>
               </div>
 
@@ -1643,86 +1770,18 @@
                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Local Definitivo do Acervo</span>
                 <div class="font-bold text-slate-800 flex items-center gap-1.5 mt-0.5">
                   <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
-                  <span>Estante física <strong class="text-emerald-700">${targetPhysicalLocation}</strong></span>
+                  <span>Estante física <strong class="text-emerald-700">${step.toCode}</strong></span>
                 </div>
               </div>
             </div>
 
             <p class="text-xs text-slate-500 mt-3 pt-2.5 border-t border-slate-100 flex items-start gap-1.5">
               <i data-lucide="info" class="w-4 h-4 text-slate-400 shrink-0 mt-0.5"></i>
-              <span>Retire o acervo ${acervoSection} que está temporariamente em <strong>${currentPhysicalLocation}</strong> e acomode na posição correta <strong>${targetPhysicalLocation}</strong> ${occupantDesc}.</span>
+              <span>Retire o acervo ${step.acervoCode} que está temporariamente em <strong>${step.fromCode}</strong> e acomode na posição definitiva <strong>${step.toCode}</strong> ${occupantDesc}.</span>
             </p>
           </div>
         `;
       }).join('');
-    }
-
-    function goToReportScreen() {
-      const screenEntry = document.getElementById('screenEntry');
-      const screenReport = document.getElementById('screenReport');
-      if (screenEntry) screenEntry.classList.add('hidden');
-      if (screenReport) screenReport.classList.remove('hidden');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      renderReportTable();
-      renderRelocationGuide();
-      renderMetrics();
-      safeCreateIcons();
-    }
-
-    function goToEntryScreen() {
-      const screenEntry = document.getElementById('screenEntry');
-      const screenReport = document.getElementById('screenReport');
-      if (screenReport) screenReport.classList.add('hidden');
-      if (screenEntry) screenEntry.classList.remove('hidden');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      resetForm();
-      const inputOld = document.getElementById('inputOldNum');
-      if (inputOld) inputOld.focus();
-      renderAll();
-      safeCreateIcons();
-    }
-
-    function switchReportTab(tab) {
-      currentReportTab = tab;
-      const btnDirect = document.getElementById('tabBtnDirect');
-      const btnGuide = document.getElementById('tabBtnGuide');
-      const tabDirect = document.getElementById('reportTabDirect');
-      const tabGuide = document.getElementById('reportTabGuide');
-
-      if (tab === 'direct') {
-        if (tabDirect) tabDirect.classList.remove('hidden');
-        if (tabGuide) tabGuide.classList.add('hidden');
-        if (btnDirect) btnDirect.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
-        if (btnGuide) btnGuide.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
-      } else {
-        if (tabDirect) tabDirect.classList.add('hidden');
-        if (tabGuide) tabGuide.classList.remove('hidden');
-        if (btnGuide) btnGuide.className = 'flex-1 py-2 px-3 rounded-lg bg-white text-slate-900 shadow-xs flex items-center justify-center gap-1.5 transition';
-        if (btnDirect) btnDirect.className = 'flex-1 py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
-      }
-      safeCreateIcons();
-    }
-
-    function handleReportSearch(val) {
-      currentSearchTerm = val;
-      renderReportTable();
-      safeCreateIcons();
-    }
-
-    function handleFilterChange(val) {
-      currentReportFilter = val;
-      renderReportTable();
-      safeCreateIcons();
-    }
-
-    function toggleProgressOverview() {
-      const screenReport = document.getElementById('screenReport');
-      const isReport = screenReport && !screenReport.classList.contains('hidden');
-      if (isReport) {
-        goToEntryScreen();
-      } else {
-        goToReportScreen();
-      }
     }
 
     function exportToExcel() {
@@ -1731,13 +1790,12 @@
         return;
       }
       try {
-        const rowsDirect = [];
-        rowsDirect.push([
-          "Posição Antiga (Acervo)", 
-          "Posição Nova (Física)", 
-          "Status da Estante", 
-          "Ação de Livros Recomendada"
-        ]);
+        const relocData = computeRelocationData();
+
+        // ABA 1: MAPEAMENTO FÍSICO (A -> B)
+        const rowsDirect = [
+          ["Posição Antiga (Acervo)", "Posição Nova (Física)", "Status da Estante", "Ação de Livros Recomendada"]
+        ];
 
         for (let i = 1; i <= TOTAL_SLOTS; i++) {
           const hasB = shelvesState[i] !== undefined;
@@ -1758,149 +1816,85 @@
           rowsDirect.push([`A${padZero(i)}`, bCode, status, action]);
         }
 
-        const rowsRelocation = [
-          ["Ordem", "Seção do Acervo", "Onde os livros estão hoje (Física)", "Destino Definitivo (Física)", "Status do Transporte"]
+        // ABA 2: ROTEIRO POR ORDEM DE EXECUÇÃO (B -> B)
+        const rowsExecution = [
+          ["# Passo", "Cadeia", "Retirar da Estante (Origem B)", "Acervo Retirado", "Levar para a Estante (Destino B)", "Situação Atual da Estante de Destino", "Status do Transporte"]
         ];
 
-        let step = 1;
-        for (let i = 1; i <= TOTAL_SLOTS; i++) {
-          if (shelvesState[i] !== undefined && shelvesState[i] !== i) {
-            rowsRelocation.push([
-              step++,
-              `Acervo A${padZero(i)}`,
-              `Estante B${padZero(shelvesState[i])}`,
-              `Estante B${padZero(i)}`,
-              "[  ] Pendente"
-            ]);
-          }
-        }
+        relocData.executionSteps.forEach(step => {
+          const destOccupant = step.targetCurrentOccupant !== undefined 
+            ? `Hoje contém provisoriamente Acervo A${padZero(step.targetCurrentOccupant)}` 
+            : `Destino livre / pendente`;
+
+          rowsExecution.push([
+            step.stepNum,
+            `Cadeia ${step.chainId}`,
+            step.fromCode,
+            `Acervo ${step.acervoCode}`,
+            step.toCode,
+            destOccupant,
+            "[  ] Concluído"
+          ]);
+        });
+
+        // ABA 3: ROTEIRO POR ORDEM DO ACERVO (A01 a A54)
+        const rowsAcervo = [
+          ["#", "Seção do Acervo", "Onde retirar hoje (Física)", "Destino Definitivo (Física)", "Situação da Estante de Destino", "Status do Transporte"]
+        ];
+
+        relocData.acervoSteps.forEach(step => {
+          const destOccupant = step.targetCurrentOccupant !== undefined 
+            ? `Hoje contém livros de A${padZero(step.targetCurrentOccupant)}` 
+            : `Destino livre / pendente`;
+
+          rowsAcervo.push([
+            step.stepNum,
+            `Acervo ${step.acervoCode}`,
+            step.fromCode,
+            step.toCode,
+            destOccupant,
+            "[  ] Concluído"
+          ]);
+        });
 
         const wb = XLSX.utils.book_new();
         const wsDirect = XLSX.utils.aoa_to_sheet(rowsDirect);
-        const wsReloc = XLSX.utils.aoa_to_sheet(rowsRelocation);
+        const wsExec = XLSX.utils.aoa_to_sheet(rowsExecution);
+        const wsAcervo = XLSX.utils.aoa_to_sheet(rowsAcervo);
 
         wsDirect['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 20 }, { wch: 45 }];
-        wsReloc['!cols'] = [{ wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 30 }, { wch: 20 }];
+        wsExec['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 20 }, { wch: 30 }, { wch: 45 }, { wch: 18 }];
+        wsAcervo['!cols'] = [{ wch: 8 }, { wch: 20 }, { wch: 26 }, { wch: 26 }, { wch: 45 }, { wch: 18 }];
 
+        XLSX.utils.book_append_sheet(wb, wsExec, "Roteiro - Ordem Execução");
+        XLSX.utils.book_append_sheet(wb, wsAcervo, "Roteiro - Ordem Acervo");
         XLSX.utils.book_append_sheet(wb, wsDirect, "Mapeamento Estantes");
-        XLSX.utils.book_append_sheet(wb, wsReloc, "Roteiro Livros");
 
         const dateStr = new Date().toISOString().slice(0, 10);
         XLSX.writeFile(wb, `relatorio_mudanca_acervo_${dateStr}.xlsx`);
-        showToast("Planilha Excel (.xlsx) exportada com sucesso!", "success");
+        showToast("Planilha Excel com abas de Ordem de Execução e Acervo exportada!", "success");
       } catch (err) {
         console.error("Erro ao gerar Excel:", err);
         showToast("Falha ao exportar planilha. Tente novamente.", "error");
       }
     }
 
-    function exportToPdf() {
+    function exportGuideToPdf(mode = 'execution') {
+      closePdfExportModal();
+
       if (!window.jspdf || !window.jspdf.jsPDF) {
         showToast("Biblioteca de PDF indisponível.", "error");
         return;
       }
+
       try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
+        const relocData = computeRelocationData();
 
-        const dateNow = new Date().toLocaleDateString('pt-BR');
-        const mappedCount = Object.keys(shelvesState).length;
-
-        doc.setFillColor(79, 70, 229);
-        doc.rect(0, 0, 210, 24, 'F');
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text("BIBLIOTECA - RELATÓRIO DE MUDANÇA DE ACERVO", 14, 12);
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Mapeamento das Estantes A01-A54 para B01-B54 | Data: ${dateNow}`, 14, 18);
-
-        doc.setFontSize(10);
-        doc.setTextColor(30, 41, 59);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Progresso Geral: ${mappedCount} de ${TOTAL_SLOTS} lados mapeados (${Math.round((mappedCount / TOTAL_SLOTS) * 100)}%)`, 14, 32);
-
-        const tableData = [];
-        for (let i = 1; i <= TOTAL_SLOTS; i++) {
-          const hasB = shelvesState[i] !== undefined;
-          const bText = hasB ? `B${padZero(shelvesState[i])}` : 'Pendente';
-          let action = '-';
-          if (!hasB) {
-            action = 'Aguardando cadastro';
-          } else if (shelvesState[i] === i) {
-            action = 'Mesma posição (Sem alteração)';
-          } else {
-            action = `Mover acervo de B${padZero(shelvesState[i])} para B${padZero(i)}`;
-          }
-
-          tableData.push([`A${padZero(i)}`, bText, action]);
-        }
-
-        doc.autoTable({
-          startY: 36,
-          head: [['Posição Antiga', 'Posição Nova', 'Ação / Deslocamento de Livros']],
-          body: tableData,
-          theme: 'striped',
-          headStyles: {
-            fillColor: [67, 56, 202],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-            fontSize: 9
-          },
-          bodyStyles: {
-            fontSize: 8,
-            cellPadding: 2
-          },
-          columnStyles: {
-            0: { cellWidth: 35, fontStyle: 'bold' },
-            1: { cellWidth: 35, fontStyle: 'bold' },
-            2: { cellWidth: 120 }
-          },
-          didDrawPage: function (data) {
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`Página ${doc.internal.getNumberOfPages()}`, 190, 290, { align: 'right' });
-          }
-        });
-
-        const dateStr = new Date().toISOString().slice(0, 10);
-        doc.save(`relatorio_mudanca_acervo_${dateStr}.pdf`);
-        showToast("Relatório PDF gerado e baixado!", "success");
-      } catch (err) {
-        console.error("Erro ao gerar PDF:", err);
-        showToast("Não foi possível gerar o PDF. Verifique se os dados estão corretos.", "error");
-      }
-    }
-
-    function exportGuideToPdf() {
-      try {
-        const mappedEntries = Object.entries(shelvesState).map(([a, b]) => ({
-          oldNum: parseInt(a, 10),
-          newNum: b
-        }));
-
-        const needRelocation = mappedEntries.filter(item => item.oldNum !== item.newNum);
-
-        if (needRelocation.length === 0) {
+        if (relocData.totalNeedRelocation === 0) {
           showToast("Nenhum livro precisa ser movido no momento ou nenhuma estante foi cadastrada.", "info");
           return;
         }
 
-        needRelocation.sort((x, y) => x.oldNum - y.oldNum);
-
-        // Invert mapping lookup: which shelf A landed on physical slot B_k?
-        const physicalSlotOccupant = {};
-        for (const [a, b] of Object.entries(shelvesState)) {
-          physicalSlotOccupant[b] = parseInt(a, 10);
-        }
-
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({
           orientation: 'portrait',
@@ -1909,85 +1903,156 @@
         });
 
         const dateNow = new Date().toLocaleDateString('pt-BR');
+        let currentY = 14;
 
-        // Header Design
-        doc.setFillColor(30, 27, 75); // indigo-950
-        doc.rect(0, 0, 210, 26, 'F');
+        // Se o modo for 'execution' ou 'both', gera a tabela de Ordem de Execução
+        if (mode === 'execution' || mode === 'both') {
+          doc.setFillColor(30, 27, 75); // indigo-950
+          doc.rect(0, 0, 210, 26, 'F');
 
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(15);
-        doc.setFont('helvetica', 'bold');
-        doc.text("BIBLIOTECA - ROTEIRO DE TRANSPORTE DOS LIVROS", 14, 12);
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text("BIBLIOTECA - ROTEIRO EM ORDEM DE EXECUÇÃO", 14, 11);
 
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Guia Operacional Passo a Passo de Realocação do Acervo | Emissão: ${dateNow}`, 14, 18);
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Sequência Operacional Contínua (B ➔ B) | Emissão: ${dateNow}`, 14, 17);
+          doc.text(`Total de Movimentações: ${relocData.totalNeedRelocation} etapas contínuas`, 14, 22);
 
-        // Subhead summary
-        doc.setFontSize(10);
-        doc.setTextColor(30, 41, 59);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Total de Seções a Transportar: ${needRelocation.length} lados de estante`, 14, 33);
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(51, 65, 85);
+          doc.text(
+            "Instruções: Siga os passos # 1, # 2... A estante de destino de uma linha é de onde você retira os livros na etapa seguinte.", 
+            14, 
+            33
+          );
 
-        doc.setFontSize(8.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(71, 85, 105);
-        doc.text("Instruções: Retire os livros da estante de origem atual e transporte-os para a estante definitiva.", 14, 38);
+          const execTableRows = relocData.executionSteps.map(step => {
+            const destObs = step.targetCurrentOccupant !== undefined 
+              ? `Tem livros de A${padZero(step.targetCurrentOccupant)} (próximo passo)` 
+              : `Destino livre`;
 
-        // Build data table
-        const tableData = needRelocation.map((item, idx) => {
-          const acervo = `Acervo A${padZero(item.oldNum)}`;
-          const ondeEsta = `Estante B${padZero(item.newNum)}`;
-          const destino = `Estante B${padZero(item.oldNum)}`;
-          
-          const occ = physicalSlotOccupant[item.oldNum];
-          const obs = occ !== undefined 
-            ? `Destino hoje tem os livros de A${padZero(occ)}` 
-            : `Destino vazio / pendente`;
+            return [
+              String(step.stepNum),
+              step.fromCode,
+              step.acervoCode,
+              step.toCode,
+              destObs,
+              "[   ]"
+            ];
+          });
 
-          return [
-            String(idx + 1),
-            acervo,
-            ondeEsta,
-            destino,
-            obs,
-            "[   ]"
-          ];
-        });
+          doc.autoTable({
+            startY: 37,
+            head: [['Passo', 'Retirar de (Física)', 'Acervo a Mover', 'Levar para (Destino)', 'Situação da Estante de Destino', 'Visto']],
+            body: execTableRows,
+            theme: 'striped',
+            headStyles: {
+              fillColor: [79, 70, 229], // brand-600
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 8.5
+            },
+            bodyStyles: {
+              fontSize: 8,
+              cellPadding: 2.5
+            },
+            columnStyles: {
+              0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
+              1: { cellWidth: 34, fontStyle: 'bold', textColor: [190, 18, 60] },
+              2: { cellWidth: 30, fontStyle: 'bold', textColor: [49, 46, 129] },
+              3: { cellWidth: 34, fontStyle: 'bold', textColor: [4, 120, 87] },
+              4: { cellWidth: 60 },
+              5: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }
+            },
+            didDrawPage: function () {
+              doc.setFontSize(7.5);
+              doc.setTextColor(150);
+              doc.text(`Página ${doc.internal.getNumberOfPages()} - Ordem de Execução (B ➔ B)`, 190, 290, { align: 'right' });
+            }
+          });
+        }
 
-        doc.autoTable({
-          startY: 42,
-          head: [['#', 'Seção do Acervo', 'Onde retirar hoje', 'Destino Definitivo', 'Situação do Destino', 'Visto']],
-          body: tableData,
-          theme: 'striped',
-          headStyles: {
-            fillColor: [79, 70, 229], // brand-600
-            textColor: [255, 255, 255],
-            fontStyle: 'bold',
-            fontSize: 9
-          },
-          bodyStyles: {
-            fontSize: 8.5,
-            cellPadding: 2.8
-          },
-          columnStyles: {
-            0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
-            1: { cellWidth: 32, fontStyle: 'bold' },
-            2: { cellWidth: 35, fontStyle: 'bold', textColor: [190, 18, 60] },
-            3: { cellWidth: 35, fontStyle: 'bold', textColor: [4, 120, 87] },
-            4: { cellWidth: 62 },
-            5: { cellWidth: 16, halign: 'center', fontStyle: 'bold' }
-          },
-          didDrawPage: function (data) {
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`Página ${doc.internal.getNumberOfPages()} - Roteiro Operacional de Mudança`, 190, 290, { align: 'right' });
+        // Se o modo for 'acervo' ou se for 'both', gera a tabela de Ordem do Acervo
+        if (mode === 'acervo' || mode === 'both') {
+          if (mode === 'both') {
+            doc.addPage();
           }
-        });
+
+          doc.setFillColor(15, 23, 42); // slate-900
+          doc.rect(0, 0, 210, 26, 'F');
+
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text("BIBLIOTECA - ROTEIRO EM ORDEM DO ACERVO", 14, 11);
+
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Ordenado pela Sequência dos Livros (A01 a A54) | Emissão: ${dateNow}`, 14, 17);
+          doc.text(`Total de Seções a Transportar: ${relocData.totalNeedRelocation} lados de estante`, 14, 22);
+
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(51, 65, 85);
+          doc.text(
+            "Instruções: Relação alinhada à ordem original dos livros. Utilize para conferência de cada seção de estante.", 
+            14, 
+            33
+          );
+
+          const acervoTableRows = relocData.acervoSteps.map((step, idx) => {
+            const destObs = step.targetCurrentOccupant !== undefined 
+              ? `Tem livros de A${padZero(step.targetCurrentOccupant)}` 
+              : `Destino livre`;
+
+            return [
+              String(idx + 1),
+              step.acervoCode,
+              step.fromCode,
+              step.toCode,
+              destObs,
+              "[   ]"
+            ];
+          });
+
+          doc.autoTable({
+            startY: 37,
+            head: [['#', 'Seção do Acervo', 'Onde retirar hoje', 'Destino Definitivo', 'Situação do Destino', 'Visto']],
+            body: acervoTableRows,
+            theme: 'striped',
+            headStyles: {
+              fillColor: [67, 56, 202],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              fontSize: 8.5
+            },
+            bodyStyles: {
+              fontSize: 8,
+              cellPadding: 2.5
+            },
+            columnStyles: {
+              0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+              1: { cellWidth: 32, fontStyle: 'bold', textColor: [49, 46, 129] },
+              2: { cellWidth: 36, fontStyle: 'bold', textColor: [190, 18, 60] },
+              3: { cellWidth: 36, fontStyle: 'bold', textColor: [4, 120, 87] },
+              4: { cellWidth: 60 },
+              5: { cellWidth: 15, halign: 'center', fontStyle: 'bold' }
+            },
+            didDrawPage: function () {
+              doc.setFontSize(7.5);
+              doc.setTextColor(150);
+              doc.text(`Página ${doc.internal.getNumberOfPages()} - Ordem do Acervo (A01 a A54)`, 190, 290, { align: 'right' });
+            }
+          });
+        }
 
         const dateStr = new Date().toISOString().slice(0, 10);
-        doc.save(`roteiro_mudanca_livros_${dateStr}.pdf`);
-        showToast("Roteiro de mudança em PDF gerado e baixado!", "success");
+        const fileNameSuffix = mode === 'both' ? 'completo_duplo' : (mode === 'execution' ? 'ordem_execucao' : 'ordem_acervo');
+        doc.save(`roteiro_mudanca_${fileNameSuffix}_${dateStr}.pdf`);
+        showToast("Roteiro em PDF gerado e baixado com sucesso!", "success");
       } catch (err) {
         console.error("Erro ao gerar PDF do roteiro:", err);
         showToast("Não foi possível gerar o PDF do roteiro.", "error");
